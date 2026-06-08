@@ -170,6 +170,19 @@ def init_db() -> None:
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS deleted_articles (
+                dedupe_key TEXT PRIMARY KEY,
+                link TEXT,
+                guid TEXT,
+                source_name TEXT,
+                original_title TEXT,
+                deleted_at TEXT
+            )
+            """
+        )
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_deleted_articles_link ON deleted_articles(link)")
         conn.commit()
 
 
@@ -184,6 +197,16 @@ def insert_article(article: dict[str, Any]) -> bool:
     )
     link = article.get("link") or None
     with get_connection() as conn:
+        deleted = conn.execute(
+            """
+            SELECT 1 FROM deleted_articles
+            WHERE dedupe_key = ? OR (? IS NOT NULL AND link = ?)
+            LIMIT 1
+            """,
+            (dedupe_key, link, link),
+        ).fetchone()
+        if deleted is not None:
+            return False
         try:
             conn.execute(
                 """
@@ -375,6 +398,30 @@ def iter_article_details() -> list[sqlite3.Row]:
 def delete_article(article_id: int) -> bool:
     init_db()
     with get_connection() as conn:
+        article = conn.execute("SELECT * FROM articles WHERE article_id = ?", (article_id,)).fetchone()
+        if article is None:
+            return False
+        conn.execute(
+            """
+            INSERT INTO deleted_articles (
+                dedupe_key, link, guid, source_name, original_title, deleted_at
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(dedupe_key) DO UPDATE SET
+                link = excluded.link,
+                guid = excluded.guid,
+                source_name = excluded.source_name,
+                original_title = excluded.original_title,
+                deleted_at = excluded.deleted_at
+            """,
+            (
+                article["dedupe_key"],
+                article["link"],
+                article["guid"],
+                article["source_name"],
+                article["original_title"],
+                now_iso(),
+            ),
+        )
         conn.execute("DELETE FROM article_meta WHERE article_id = ?", (article_id,))
         cursor = conn.execute("DELETE FROM articles WHERE article_id = ?", (article_id,))
         conn.commit()

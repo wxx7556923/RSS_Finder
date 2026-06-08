@@ -239,8 +239,6 @@ document.addEventListener("click", async (event) => {
     if (action === "delete-article") {
       const id = target.dataset.id;
       const card = document.querySelector(`#article-${id}`);
-      const title = card?.querySelector(".title-cn")?.textContent?.trim() || `文章 ${id}`;
-      if (!window.confirm(`确定从本地数据库删除这篇文章吗？\n\n${title}`)) return;
       setLoading(target, true, "删除中...");
       await postJson(`/api/articles/${id}/delete`);
       card?.remove();
