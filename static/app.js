@@ -217,6 +217,7 @@ document.addEventListener("click", async (event) => {
       if (data.read_status === "read") {
         target.classList.add("status-done");
         target.textContent = "已读";
+        target.dataset.originalText = "已读";
       }
       showNotice("阅读状态已更新。");
     }
