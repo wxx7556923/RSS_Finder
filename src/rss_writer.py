@@ -41,7 +41,7 @@ def _description(article: Any) -> str:
             ]
         )
     else:
-        summary_text = "中文摘要：\n未生成摘要。可在本地控制台点击“生成摘要”。"
+        summary_text = "RSS 摘要：\n" + (article["original_description"] or "RSS 未提供摘要。")
 
     return "\n\n".join(
         [
@@ -71,7 +71,7 @@ def build_feed(path: Path = OUTPUT_XML) -> dict[str, Any]:
     config = settings.output_rss_config()
     channel_title = str(config.get("title") or "AI 中文摘要")
     channel_link = str(config.get("link") or "http://localhost:8090/feed.xml")
-    channel_description = str(config.get("description") or "自动翻译标题并按需生成摘要后的 RSS Feed")
+    channel_description = str(config.get("description") or "自动翻译标题并保留 RSS 摘要的 Feed")
 
     rss = ET.Element("rss", version="2.0")
     channel = ET.SubElement(rss, "channel")

@@ -33,11 +33,12 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "output_rss": {
         "title": "AI 中文摘要",
         "link": "http://localhost:8090/feed.xml",
-        "description": "自动翻译标题并按需生成摘要后的 RSS Feed",
+        "description": "自动翻译标题并保留 RSS 摘要的 Feed",
         "original_title": "原文 RSS",
         "original_description": "不调用 DeepSeek，保留原始标题和 RSS 原始摘要的 Feed",
     },
     "feeds": [],
+    "html_sources": [],
     "biorxiv_api": {"enabled": False},
     "rules": {"exclude_rules": [], "tag_rules": []},
 }
@@ -102,6 +103,22 @@ def feeds() -> list[dict[str, str]]:
         enabled = item.get("enabled", True)
         if name and url and enabled is not False:
             result.append({"name": name, "url": url})
+    return result
+
+
+def html_sources() -> list[dict[str, Any]]:
+    result = []
+    for item in get_config().get("html_sources") or []:
+        name = str(item.get("name", "")).strip()
+        url = str(item.get("url", "")).strip()
+        parser = str(item.get("parser", "")).strip()
+        enabled = item.get("enabled", True)
+        try:
+            pages = max(1, int(item.get("pages") or 1))
+        except (TypeError, ValueError):
+            pages = 1
+        if name and url and parser and enabled is not False:
+            result.append({"name": name, "url": url, "parser": parser, "pages": pages})
     return result
 
 

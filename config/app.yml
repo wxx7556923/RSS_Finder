@@ -16,9 +16,55 @@ deepseek:
 output_rss:
   title: "RSS AI Summary Feed"
   link: "http://localhost:8090/feed.xml"
-  description: "RSS feed with translated titles and optional AI summaries"
+  description: "RSS feed with translated titles and source descriptions"
   original_title: "Original RSS Feed"
   original_description: "Original titles and descriptions without AI processing"
+
+html_sources:
+  - name: "Nature"
+    url: "https://www.nature.com/nature/articles?type=article"
+    parser: "nature_articles"
+    pages: 2
+  - name: "Nature Genetics"
+    url: "https://www.nature.com/ng/articles?type=article"
+    parser: "nature_articles"
+    pages: 2
+  - name: "Nature Communications"
+    url: "https://www.nature.com/ncomms/articles?type=article"
+    parser: "nature_articles"
+    pages: 2
+  - name: "Nature Plants"
+    url: "https://www.nature.com/nplants/articles?type=article"
+    parser: "nature_articles"
+    pages: 2
+  - name: "Nature Machine Intelligence"
+    url: "https://www.nature.com/natmachintell/articles?type=article"
+    parser: "nature_articles"
+    pages: 2
+  - name: "Nature Computational Science"
+    url: "https://www.nature.com/natcomputsci/articles?type=article"
+    parser: "nature_articles"
+    pages: 2
+  - name: "Nature Reviews Genetics"
+    url: "https://www.nature.com/nrg/articles"
+    parser: "nature_articles"
+    pages: 2
+  - name: "Nature Methods"
+    url: "https://www.nature.com/nmeth/articles?type=article"
+    parser: "nature_articles"
+    pages: 2
+  - name: "Nature Biotechnology"
+    url: "https://www.nature.com/nbt/articles?type=article"
+    parser: "nature_articles"
+    pages: 2
+  - name: "Genome Biology (Springer)"
+    url: "https://link.springer.com/journal/13059/articles"
+    parser: "springer_articles"
+    pages: 1
+  - name: "Genome Research - GR-in-Advance (CSHL Press)"
+    url: "https://genome.cshlp.org/content/early/recent"
+    parser: "cshl_early_articles"
+    pages: 1
 
 # Default starter set for plant biology, genomics, AI/ML, and broad science journals.
 # Delete sources you do not need, or add more sources under this list.

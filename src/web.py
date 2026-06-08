@@ -138,7 +138,7 @@ async def api_sync(limit: int | None = Query(default=None, ge=1, le=1000)):
                 "success": 0,
                 "failed": 0,
                 "skipped": 0,
-                "message": "DeepSeek API Key 未配置，已跳过标题翻译。",
+                "message": "DeepSeek API Key 未配置，未进行标题翻译。",
             }
         feed_result = rss_writer.build_feed()
         original_feed_result = rss_writer.build_original_feed()
@@ -186,24 +186,13 @@ async def api_summarize(article_id: int, force: bool = Query(default=False)):
         raise HTTPException(status_code=500, detail="生成摘要失败，请查看 logs/app.log")
 
 
-@app.post("/api/articles/{article_id}/skip")
-async def api_skip(article_id: int):
-    article = storage.get_article(article_id)
-    if article is None:
-        raise HTTPException(status_code=404, detail="文章不存在")
-    storage.update_summary(article_id, "skipped")
-    storage.update_article_meta(article_id, read_status="skipped")
-    result = rss_writer.build_feed()
-    return JSONResponse({"article_id": article_id, "summary_status": "skipped", "feed": result})
-
-
 @app.post("/api/articles/{article_id}/meta")
 async def api_article_meta(article_id: int, request: Request):
     try:
         payload = await request.json()
     except Exception:
         payload = {}
-    allowed_statuses = {"unread", "opened", "read", "skipped", "to_read", "filtered"}
+    allowed_statuses = {"unread", "opened", "read", "to_read", "filtered"}
     allowed_zotero_statuses = {"not_saved", "saved"}
     read_status = payload.get("read_status")
     if read_status is not None and read_status not in allowed_statuses:

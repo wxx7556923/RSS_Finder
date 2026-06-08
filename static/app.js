@@ -39,26 +39,6 @@ async function postJson(url, payload = null) {
   return data;
 }
 
-function renderSummary(card, summary) {
-  const area = card.querySelector(".summary");
-  const status = card.querySelector(".summary-status");
-  area.innerHTML = `
-    <ol>
-      <li>${escapeHtml(summary[0] || "")}</li>
-      <li>${escapeHtml(summary[1] || "")}</li>
-      <li>${escapeHtml(summary[2] || "")}</li>
-    </ol>
-  `;
-  status.textContent = "摘要：summarized";
-}
-
-function renderSkipped(card) {
-  const area = card.querySelector(".summary");
-  const status = card.querySelector(".summary-status");
-  area.innerHTML = "<p>已跳过。</p>";
-  status.textContent = "摘要：skipped";
-}
-
 function collectMeta(card) {
   const payload = {};
   for (const field of ["user_note", "tags"]) {
@@ -166,25 +146,6 @@ document.addEventListener("click", async (event) => {
       setLoading(target, true, "生成中...");
       const data = await postJson(`/api/build-feed?mode=${encodeURIComponent(currentMode)}`);
       showNotice(`RSS 已生成：${data.items} 条。`);
-    }
-
-    if (action === "summarize") {
-      const id = target.dataset.id;
-      const card = document.querySelector(`#article-${id}`);
-      setLoading(target, true, "生成中...");
-      const data = await postJson(`/api/articles/${id}/summarize`);
-      renderSummary(card, data.summary || []);
-      showNotice("摘要已生成，RSS 已同步更新。");
-    }
-
-    if (action === "skip") {
-      const id = target.dataset.id;
-      const card = document.querySelector(`#article-${id}`);
-      setLoading(target, true, "跳过中...");
-      await postJson(`/api/articles/${id}/skip`);
-      renderSkipped(card);
-      updateReadStatus(card, "skipped");
-      showNotice("已跳过，RSS 已同步更新。");
     }
 
     if (action === "save-meta") {

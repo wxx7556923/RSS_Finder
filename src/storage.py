@@ -535,7 +535,6 @@ def get_stats() -> dict[str, int]:
                 SUM(CASE WHEN COALESCE(m.zotero_status, 'not_saved') = 'saved' THEN 1 ELSE 0 END) AS zotero_saved,
                 SUM(CASE WHEN title_status = 'translated' THEN 1 ELSE 0 END) AS translated,
                 SUM(CASE WHEN summary_status = 'summarized' THEN 1 ELSE 0 END) AS summarized,
-                SUM(CASE WHEN COALESCE(m.read_status, 'unread') = 'skipped' THEN 1 ELSE 0 END) AS skipped,
                 SUM(CASE WHEN title_status = 'failed' OR summary_status = 'failed' THEN 1 ELSE 0 END) AS failed
             FROM articles
             LEFT JOIN article_meta m ON m.article_id = articles.article_id
@@ -552,7 +551,6 @@ def get_stats() -> dict[str, int]:
         "zotero_saved": int(row["zotero_saved"] or 0),
         "translated": int(row["translated"] or 0),
         "summarized": int(row["summarized"] or 0),
-        "skipped": int(row["skipped"] or 0),
         "failed": int(row["failed"] or 0),
     }
 

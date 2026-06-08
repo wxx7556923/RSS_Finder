@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ app_title }}</title>
-    <link rel="stylesheet" href="/static/style.css?v=20260608-delete-tombstone">
+    <link rel="stylesheet" href="/static/style.css?v=20260608-hide-summary-skip">
   </head>
   <body data-mode="{{ mode }}">
     <main class="shell">
@@ -36,11 +36,9 @@
         <div><span>{{ stats.to_read }}</span><label>待精读</label></div>
         <div><span>{{ stats.favorite }}</span><label>收藏</label></div>
         <div><span>{{ stats.zotero_saved }}</span><label>已入 Zotero</label></div>
-        <div><span>{{ stats.skipped }}</span><label>已跳过</label></div>
         <div><span>{{ stats.filtered }}</span><label>已过滤</label></div>
         {% if mode == "ds" %}
         <div><span>{{ stats.translated }}</span><label>已翻译标题</label></div>
-        <div><span>{{ stats.summarized }}</span><label>DS 摘要</label></div>
         <div><span>{{ stats.failed }}</span><label>失败数</label></div>
         {% endif %}
       </section>
@@ -74,7 +72,6 @@
             <option value="opened" {% if read_status == "opened" %}selected{% endif %}>已打开</option>
             <option value="to_read" {% if read_status == "to_read" %}selected{% endif %}>待精读</option>
             <option value="read" {% if read_status == "read" %}selected{% endif %}>已读</option>
-            <option value="skipped" {% if read_status == "skipped" %}selected{% endif %}>跳过</option>
             <option value="filtered" {% if read_status == "filtered" %}selected{% endif %}>已过滤</option>
           </select>
         </label>
@@ -147,7 +144,6 @@
                 <span class="source-name">{{ article.source_name }}</span>
                 <span>{{ article.published_at or article.fetched_at }}</span>
                 <span>标题：{{ article.title_status }}</span>
-                <span class="summary-status">摘要：{{ article.summary_status }}</span>
                 <span class="read-status">状态：{{ article.read_status }}</span>
               </div>
               <h2 class="title-cn">
@@ -178,15 +174,13 @@
                     <li>{{ article.summary_line_2 }}</li>
                     <li>{{ article.summary_line_3 }}</li>
                   </ol>
-                {% elif article.summary_status == "skipped" %}
-                  <p>已跳过。</p>
                 {% elif article.summary_status == "failed" %}
-                  <p>摘要生成失败，可再次点击“生成摘要”。</p>
+                  <p>摘要生成失败。</p>
                 {% else %}
                   {% if article.original_description %}
                     <p>{{ article.original_description }}</p>
                   {% else %}
-                    <p>未生成摘要，RSS 未提供原始摘要。</p>
+                    <p>RSS 未提供摘要。</p>
                   {% endif %}
                 {% endif %}
               </div>
@@ -219,9 +213,6 @@
               </button>
               <button data-action="set-status" data-status="to_read" data-id="{{ article.article_id }}">待精读</button>
               <button class="{% if article.read_status == 'read' %}status-done{% endif %}" data-action="set-status" data-status="read" data-id="{{ article.article_id }}">{% if article.read_status == 'read' %}已读{% else %}标为已读{% endif %}</button>
-              {% if mode == "ds" %}
-              <button data-action="summarize" data-id="{{ article.article_id }}">生成摘要</button>
-              {% endif %}
               <button data-action="toggle-zotero" data-id="{{ article.article_id }}" data-zotero-status="{{ article.zotero_status }}">
                 {% if article.zotero_status == "saved" %}取消 Zotero{% else %}已入 Zotero{% endif %}
               </button>
@@ -238,6 +229,6 @@
         {% endif %}
       </section>
     </main>
-    <script src="/static/app.js?v=20260608-delete-tombstone"></script>
+    <script src="/static/app.js?v=20260608-hide-summary-skip"></script>
   </body>
 </html>

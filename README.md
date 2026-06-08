@@ -1,17 +1,17 @@
 # RSS Finder
 
-一个面向 Linux 本地使用的 RSS 论文/期刊追踪控制台。它会抓取期刊 RSS 和 bioRxiv/arXiv 来源，保存到本地 SQLite 数据库，并在网页中按来源、状态、关键词、收藏等条件筛选。配置 DeepSeek API Key 后，可以批量翻译标题，并对感兴趣的文章按需生成中文三行摘要。
+一个面向 Linux 本地使用的 RSS 论文/期刊追踪控制台。它会抓取期刊 RSS、部分官网文章列表兜底来源和 bioRxiv/arXiv 来源，保存到本地 SQLite 数据库，并在网页中按来源、状态、关键词、收藏等条件筛选。配置 DeepSeek API Key 后，可以批量翻译标题；摘要区域优先展示来源提供的原始摘要。
 
 这个仓库不包含个人数据：没有 `.env`、数据库、日志、RSS 输出文件或 FreshRSS 数据卷。
 
 ## 主要功能
 
-- 聚合多个期刊 RSS、arXiv 分类和 bioRxiv API 来源
+- 聚合多个期刊 RSS、Nature/Springer/CSHL 官网文章列表兜底、arXiv 分类和 bioRxiv API 来源
 - 本地 SQLite 去重保存文章
 - Web 控制台浏览、检索、筛选和管理文章
 - 一键同步：抓取新文章、应用过滤规则、翻译标题、重建 RSS
-- DeepSeek 标题翻译和按需三行摘要
-- 阅读状态管理：未读、已读、待精读、跳过、过滤
+- DeepSeek 标题翻译
+- 阅读状态管理：未读、已读、待精读、过滤
 - 收藏、笔记、标签和 Zotero 标记
 - 点击 `打开原文` 后自动标为已读
 - 导出 RIS，方便导入文献管理工具
@@ -122,9 +122,9 @@ http://localhost:8090
 
 1. 点击 `一键同步`
 2. 浏览文章列表
-3. 对感兴趣的文章点击 `生成摘要` 或 `打开原文`
+3. 对感兴趣的文章点击 `打开原文`
 4. 对暂时要保留的文章点击 `待精读`
-5. 对不感兴趣的文章点击 `跳过`
+5. 对看完的文章点击 `标为已读`
 6. 需要时点击 `重新生成 RSS`
 
 备用按钮：
@@ -143,7 +143,7 @@ http://localhost:8090/feed.xml
 http://localhost:8090/feed-original.xml
 ```
 
-- `feed.xml`：翻译标题和按需摘要后的 RSS
+- `feed.xml`：翻译标题并保留 RSS 摘要后的 RSS
 - `feed-original.xml`：原始标题和原始 RSS 描述
 
 ## 配置 RSS 源

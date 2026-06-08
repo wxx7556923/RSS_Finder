@@ -9,6 +9,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 
 import feedparser
 import httpx
@@ -98,6 +99,30 @@ def load_biorxiv_config(path: Path | None = None) -> dict[str, Any]:
             return {}
         return biorxiv_config
     return settings.biorxiv_config()
+
+
+def load_html_sources(path: Path | None = None) -> list[dict[str, Any]]:
+    if path is not None:
+        import yaml
+
+        if not path.exists():
+            return []
+        with path.open("r", encoding="utf-8") as handle:
+            config = yaml.safe_load(handle) or {}
+        result = []
+        for item in config.get("html_sources", []):
+            name = str(item.get("name", "")).strip()
+            url = str(item.get("url", "")).strip()
+            parser = str(item.get("parser", "")).strip()
+            enabled = item.get("enabled", True)
+            try:
+                pages = max(1, int(item.get("pages") or 1))
+            except (TypeError, ValueError):
+                pages = 1
+            if name and url and parser and enabled is not False:
+                result.append({"name": name, "url": url, "parser": parser, "pages": pages})
+        return result
+    return settings.html_sources()
 
 
 def _date_range(days_back: int) -> tuple[str, str]:
@@ -219,10 +244,212 @@ async def _get_with_fallback(
     return await direct_client.get(url, **kwargs)
 
 
+def _iso_date(value: str, fallback: str) -> str:
+    value = value.strip()
+    if not value:
+        return fallback
+    try:
+        return datetime.fromisoformat(value).replace(tzinfo=timezone.utc).isoformat()
+    except ValueError:
+        pass
+    try:
+        dt = email.utils.parsedate_to_datetime(value)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(timezone.utc).isoformat()
+    except (TypeError, ValueError):
+        pass
+    for date_format in ("%d %B %Y", "%B %d, %Y"):
+        try:
+            return datetime.strptime(value, date_format).replace(tzinfo=timezone.utc).isoformat()
+        except ValueError:
+            continue
+    return fallback
+
+
+def _page_url(url: str, page: int) -> str:
+    if page <= 1:
+        return url
+    parts = urlsplit(url)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    query["page"] = str(page)
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
+
+
+def _parse_nature_articles_html(source: dict[str, Any], body: str, fetched_at: str) -> list[dict[str, str]]:
+    articles = []
+    blocks = re.findall(r"<article\b[^>]*ScholarlyArticle[^>]*>.*?</article>", body, re.S)
+    for block in blocks:
+        link_match = re.search(
+            r'<a href="([^"]+)"[^>]*data-track-label="link"[^>]*>(.*?)</a>',
+            block,
+            re.S,
+        )
+        if not link_match:
+            continue
+        date_match = re.search(r'<time[^>]+datetime="([^"]+)"', block, re.S)
+        description_match = re.search(r'data-test="article-description"[^>]*>.*?<p>(.*?)</p>', block, re.S)
+        authors = [_clean_text(value) for value in re.findall(r'itemprop="name">(.*?)</span>', block, re.S)]
+        authors = [value for value in authors if value]
+
+        link = urljoin(str(source["url"]), html.unescape(link_match.group(1)))
+        title = _clean_text(link_match.group(2)) or "(no title)"
+        description_parts = []
+        if authors:
+            description_parts.append("Authors: " + ", ".join(authors))
+        description = _clean_text(description_match.group(1)) if description_match else ""
+        if description:
+            description_parts.append(description)
+        published_at = _iso_date(date_match.group(1), fetched_at) if date_match else fetched_at
+        articles.append(
+            {
+                "source_name": str(source["name"]),
+                "guid": link,
+                "link": link,
+                "original_title": title,
+                "original_description": "\n\n".join(description_parts),
+                "published_at": published_at,
+                "fetched_at": fetched_at,
+            }
+        )
+    return articles
+
+
+def _parse_springer_articles_html(source: dict[str, Any], body: str, fetched_at: str) -> list[dict[str, str]]:
+    articles = []
+    blocks = re.findall(r'<article class="app-card-open">.*?</article>', body, re.S)
+    for block in blocks:
+        link_match = re.search(r'<h2 class="app-card-open__heading">.*?<a href="([^"]+)"[^>]*>(.*?)</a>', block, re.S)
+        if not link_match:
+            continue
+        authors = [_clean_text(value) for value in re.findall(r'<li class="app-author-list__item">(.*?)</li>', block, re.S)]
+        authors = [value for value in authors if value]
+        meta_items = [_clean_text(value) for value in re.findall(r'<span class="c-meta__item[^"]*">(.*?)</span>', block, re.S)]
+        date_text = next((value for value in reversed(meta_items) if re.search(r"\d{4}", value)), "")
+        article_type = next((value for value in meta_items if value and value.lower() != "open access"), "")
+
+        link = urljoin(str(source["url"]), html.unescape(link_match.group(1)))
+        title = _clean_text(link_match.group(2)) or "(no title)"
+        description_parts = []
+        if authors:
+            description_parts.append("Authors: " + ", ".join(authors))
+        if article_type:
+            description_parts.append("Article type: " + article_type)
+        articles.append(
+            {
+                "source_name": str(source["name"]),
+                "guid": link,
+                "link": link,
+                "original_title": title,
+                "original_description": "\n\n".join(description_parts),
+                "published_at": _iso_date(date_text, fetched_at),
+                "fetched_at": fetched_at,
+            }
+        )
+    return articles
+
+
+def _parse_cshl_early_articles_html(source: dict[str, Any], body: str, fetched_at: str) -> list[dict[str, str]]:
+    articles = []
+    blocks = re.findall(r'<article class="article-section">.*?</article>', body, re.S)
+    for block in blocks:
+        link_match = re.search(r'<h5 class="title">.*?<a\s+href="([^"]+)"[^>]*>(.*?)</a>', block, re.S)
+        if not link_match:
+            continue
+        authors_block = re.search(r'<div class="article__authorname">(.*?)</div>', block, re.S)
+        authors = []
+        if authors_block:
+            authors = [_clean_text(value) for value in re.findall(r"<li[^>]*>(.*?)</li>", authors_block.group(1), re.S)]
+            authors = [value for value in authors if value and not value.startswith("...") and "[+" not in value]
+        date_match = re.search(r'<span class="card-citation-value">(.*?)</span>', block, re.S)
+        date_text = _clean_text(date_match.group(1)) if date_match else ""
+
+        link = urljoin(str(source["url"]), html.unescape(link_match.group(1)))
+        title = _clean_text(link_match.group(2)) or "(no title)"
+        description = "Authors: " + ", ".join(authors) if authors else ""
+        articles.append(
+            {
+                "source_name": str(source["name"]),
+                "guid": link,
+                "link": link,
+                "original_title": title,
+                "original_description": description,
+                "published_at": _iso_date(date_text, fetched_at),
+                "fetched_at": fetched_at,
+            }
+        )
+    return articles
+
+
+def _parse_html_articles(source: dict[str, Any], body: str, fetched_at: str) -> list[dict[str, str]]:
+    parser = str(source.get("parser") or "").strip()
+    if parser == "nature_articles":
+        return _parse_nature_articles_html(source, body, fetched_at)
+    if parser == "springer_articles":
+        return _parse_springer_articles_html(source, body, fetched_at)
+    if parser == "cshl_early_articles":
+        return _parse_cshl_early_articles_html(source, body, fetched_at)
+    raise ValueError(f"Unsupported HTML source parser: {parser}")
+
+
+async def _fetch_html_sources(
+    client: httpx.AsyncClient,
+    direct_client: httpx.AsyncClient,
+    html_sources: list[dict[str, Any]],
+    limit: int | None,
+    seen: int,
+    fetched_at: str,
+) -> tuple[int, int, int]:
+    added = 0
+    errors = 0
+    total_seen = seen
+    for source in html_sources:
+        pages = int(source.get("pages") or 1)
+        health_name = f"{source['name']} (Article page)"
+        for page in range(1, pages + 1):
+            if limit is not None and total_seen >= limit:
+                break
+            url = _page_url(str(source["url"]), page)
+            try:
+                response = await _get_with_fallback(client, direct_client, url)
+                response.raise_for_status()
+                articles = _parse_html_articles(source, response.text, fetched_at)
+            except (httpx.HTTPError, ValueError) as exc:
+                errors += 1
+                http_status = exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else None
+                storage.update_source_health_failure(
+                    health_name,
+                    url,
+                    "html_articles",
+                    str(exc),
+                    http_status,
+                )
+                logger.exception("Failed to fetch HTML source %s: %s", source["name"], exc)
+                break
+
+            storage.update_source_health_success(
+                health_name,
+                url,
+                "html_articles",
+                len(articles),
+                response.status_code,
+            )
+            if not articles:
+                break
+            for article in articles:
+                if limit is not None and total_seen >= limit:
+                    break
+                total_seen += 1
+                if storage.insert_article(article):
+                    added += 1
+    return added, total_seen, errors
+
+
 async def fetch_and_store(limit: int | None = None) -> dict[str, int]:
     storage.init_db()
     settings.reload_config()
     feeds = load_feeds()
+    html_sources = load_html_sources()
     biorxiv_config = load_biorxiv_config()
     added = 0
     seen = 0
@@ -283,6 +510,18 @@ async def fetch_and_store(limit: int | None = None) -> dict[str, int]:
                 seen += 1
                 if storage.insert_article(article):
                     added += 1
+
+        if html_sources and (limit is None or seen < limit):
+            html_added, seen, html_errors = await _fetch_html_sources(
+                client,
+                direct_client,
+                html_sources,
+                limit,
+                seen,
+                fetched_at,
+            )
+            added += html_added
+            errors += html_errors
 
         if biorxiv_config and (limit is None or seen < limit):
             biorxiv_added, seen, biorxiv_errors = await _fetch_biorxiv_api(
