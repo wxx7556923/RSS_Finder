@@ -293,7 +293,7 @@ button:disabled {
 
 .card {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 138px;
+  grid-template-columns: minmax(0, 1fr) 168px;
   gap: 14px;
   background: var(--panel);
   border: 1px solid var(--line);
@@ -492,6 +492,12 @@ button:disabled {
   gap: 8px;
   grid-auto-rows: min-content;
   min-width: 0;
+}
+
+.card-actions button,
+.card-actions .button-link {
+  text-align: center;
+  width: 100%;
 }
 
 .empty {

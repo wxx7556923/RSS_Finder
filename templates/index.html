@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ app_title }}</title>
-    <link rel="stylesheet" href="/static/style.css?v=20260608-read-button-2">
+    <link rel="stylesheet" href="/static/style.css?v=20260608-actions-sidebar">
   </head>
   <body data-mode="{{ mode }}">
     <main class="shell">
@@ -205,12 +205,6 @@
                 </div>
                 <div class="note-actions">
                   <button data-action="save-meta" data-id="{{ article.article_id }}">保存笔记</button>
-                  <button data-action="set-status" data-status="skipped" data-id="{{ article.article_id }}">跳过</button>
-                  <button data-action="toggle-zotero" data-id="{{ article.article_id }}" data-zotero-status="{{ article.zotero_status }}">
-                    {% if article.zotero_status == "saved" %}取消 Zotero{% else %}已入 Zotero{% endif %}
-                  </button>
-                  <button class="danger-button" data-action="delete-article" data-id="{{ article.article_id }}">删除</button>
-                  <a class="button-link" href="/api/articles/{{ article.article_id }}/ris">导出 RIS</a>
                 </div>
               </details>
             </div>
@@ -227,8 +221,12 @@
               <button class="{% if article.read_status == 'read' %}status-done{% endif %}" data-action="set-status" data-status="read" data-id="{{ article.article_id }}">{% if article.read_status == 'read' %}已读{% else %}标为已读{% endif %}</button>
               {% if mode == "ds" %}
               <button data-action="summarize" data-id="{{ article.article_id }}">生成摘要</button>
-              <button data-action="skip" data-id="{{ article.article_id }}">跳过</button>
               {% endif %}
+              <button data-action="toggle-zotero" data-id="{{ article.article_id }}" data-zotero-status="{{ article.zotero_status }}">
+                {% if article.zotero_status == "saved" %}取消 Zotero{% else %}已入 Zotero{% endif %}
+              </button>
+              <a class="button-link" href="/api/articles/{{ article.article_id }}/ris">导出 RIS</a>
+              <button class="danger-button" data-action="delete-article" data-id="{{ article.article_id }}">删除</button>
             </div>
           </article>
           {% endfor %}
@@ -240,6 +238,6 @@
         {% endif %}
       </section>
     </main>
-    <script src="/static/app.js?v=20260608-read-button-2"></script>
+    <script src="/static/app.js?v=20260608-actions-sidebar"></script>
   </body>
 </html>
