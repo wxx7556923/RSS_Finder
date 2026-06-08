@@ -137,6 +137,14 @@ button:disabled {
   opacity: 0.55;
 }
 
+.status-done,
+.status-done:hover {
+  background: #eaf6ef;
+  border-color: #54a46d;
+  color: #1f7a3d;
+  font-weight: 600;
+}
+
 .danger-button {
   border-color: #f1b8b8;
   color: var(--danger);

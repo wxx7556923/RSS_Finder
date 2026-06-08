@@ -214,6 +214,10 @@ document.addEventListener("click", async (event) => {
       setLoading(target, true, "保存中...");
       const data = await postJson(`/api/articles/${id}/meta`, { read_status: status });
       updateReadStatus(card, data.read_status);
+      if (data.read_status === "read") {
+        target.classList.add("status-done");
+        target.textContent = "已读";
+      }
       showNotice("阅读状态已更新。");
     }
 
