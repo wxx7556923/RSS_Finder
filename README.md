@@ -249,28 +249,6 @@ python tools/health_check.py
 - `logs/app.log`：运行日志
 - `codex_workflows/journal_to_rss/SKILL.md`：期刊名查 RSS 的 Codex 工作流
 
-## 上传或二次分享前检查
-
-确认这些文件没有被分享出去：
-
-- `.env`
-- `.venv/`
-- `data/*.db`
-- `logs/*.log`
-- `output/*.xml`
-- `volumes/`
-- `__pycache__/`
-
-`.gitignore` 已经默认忽略它们。
-
-上传 GitHub 前可以运行：
-
-```bash
-find . -path '*/__pycache__' -o -name '.env' -o -name 'rss_ai.db' -o -name 'app.log' -o -name 'output.xml' -o -name 'original.xml'
-python tools/health_check.py
-```
-
-第一条命令如果输出 `.env`、数据库、日志或生成的 RSS 文件，先不要上传。
 
 ## CLI 调试
 
