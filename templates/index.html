@@ -183,7 +183,11 @@
                 {% elif article.summary_status == "failed" %}
                   <p>摘要生成失败，可再次点击“生成摘要”。</p>
                 {% else %}
-                  <p>未生成摘要</p>
+                  {% if article.original_description %}
+                    <p>{{ article.original_description }}</p>
+                  {% else %}
+                    <p>未生成摘要，RSS 未提供原始摘要。</p>
+                  {% endif %}
                 {% endif %}
               </div>
               {% endif %}
