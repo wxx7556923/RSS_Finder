@@ -82,7 +82,7 @@ async def index(
         favorite=True if favorite else None,
     )
     if not read_status.strip():
-        articles = [article for article in articles if article["read_status"] != "filtered"]
+        articles = [article for article in articles if article["read_status"] not in {"filtered", "read"}]
     stats = storage.get_stats()
     return templates.TemplateResponse(
         "index.html",

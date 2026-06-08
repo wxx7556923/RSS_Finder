@@ -214,10 +214,14 @@ document.addEventListener("click", async (event) => {
       setLoading(target, true, "保存中...");
       const data = await postJson(`/api/articles/${id}/meta`, { read_status: status });
       updateReadStatus(card, data.read_status);
+      if (card) card.dataset.readStatus = data.read_status;
       if (data.read_status === "read") {
         target.classList.add("status-done");
         target.textContent = "已读";
         target.dataset.originalText = "已读";
+        if (new URLSearchParams(window.location.search).get("read_status") === "unread") {
+          card?.remove();
+        }
       }
       showNotice("阅读状态已更新。");
     }
