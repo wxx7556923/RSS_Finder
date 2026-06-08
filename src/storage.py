@@ -51,6 +51,40 @@ def make_dedupe_key(source_name: str, guid: str | None, link: str | None, title:
     return "hash:" + digest
 
 
+def _update_description_if_better(
+    conn: sqlite3.Connection,
+    dedupe_key: str,
+    link: str | None,
+    description: str | None,
+    timestamp: str,
+) -> None:
+    clean_description = (description or "").strip()
+    if len(clean_description) < 80:
+        return
+    row = conn.execute(
+        """
+        SELECT article_id, COALESCE(original_description, '') AS original_description
+        FROM articles
+        WHERE dedupe_key = ? OR (? IS NOT NULL AND link = ?)
+        LIMIT 1
+        """,
+        (dedupe_key, link, link),
+    ).fetchone()
+    if row is None:
+        return
+    existing = str(row["original_description"] or "")
+    if len(clean_description) > len(existing) + 80:
+        conn.execute(
+            """
+            UPDATE articles
+            SET original_description = ?, updated_at = ?
+            WHERE article_id = ?
+            """,
+            (clean_description, timestamp, row["article_id"]),
+        )
+        conn.commit()
+
+
 def get_connection() -> sqlite3.Connection:
     ensure_dirs()
     conn = sqlite3.connect(DB_PATH)
@@ -182,6 +216,13 @@ def insert_article(article: dict[str, Any]) -> bool:
             conn.commit()
             return True
         except sqlite3.IntegrityError:
+            _update_description_if_better(
+                conn,
+                dedupe_key,
+                link,
+                article.get("original_description"),
+                timestamp,
+            )
             return False
 
 

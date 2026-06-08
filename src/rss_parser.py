@@ -53,17 +53,20 @@ def _entry_time_to_iso(entry: Any, fallback: str) -> str:
 
 def _entry_description(entry: Any) -> str:
     content = entry.get("content")
-    if content and isinstance(content, list) and content:
-        content_value = content[0].get("value", "")
-    else:
-        content_value = ""
-    return _clean_text(
-        entry.get("summary")
-        or entry.get("description")
-        or entry.get("subtitle")
-        or content_value
-        or ""
-    )
+    content_values = []
+    if content and isinstance(content, list):
+        content_values = [str(item.get("value") or "") for item in content if item.get("value")]
+    candidates = [
+        *(content_values or []),
+        str(entry.get("summary") or ""),
+        str(entry.get("description") or ""),
+        str(entry.get("subtitle") or ""),
+    ]
+    cleaned = [_clean_text(value) for value in candidates]
+    cleaned = [value for value in cleaned if value]
+    if not cleaned:
+        return ""
+    return max(cleaned, key=len)
 
 
 def load_feeds(path: Path | None = None) -> list[dict[str, str]]:
