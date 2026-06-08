@@ -56,6 +56,8 @@ feeds:
     url: "https://academic.oup.com/rss/site_6317/advanceAccess_4077.xml"
   - name: "Journal of Experimental Botany - Advance Articles (Oxford Academic)"
     url: "https://academic.oup.com/rss/site_5304/advanceAccess_3170.xml"
+  - name: "Horticulture Research - Advance Articles (Oxford Academic)"
+    url: "https://academic.oup.com/rss/site_6464/advanceAccess_4122.xml"
   - name: "Developmental Cell (ScienceDirect Feed)"
     url: "https://rss.sciencedirect.com/publication/science/15345807"
   - name: "Current Biology (ScienceDirect Feed)"

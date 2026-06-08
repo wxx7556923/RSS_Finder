@@ -40,6 +40,7 @@
 - Plant Communications
 - The Plant Cell
 - Journal of Experimental Botany
+- Horticulture Research
 - Developmental Cell
 - Current Biology
 - Cell Reports
