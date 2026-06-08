@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ app_title }}</title>
-    <link rel="stylesheet" href="/static/style.css?v=20260608-hide-summary-skip">
+    <link rel="stylesheet" href="/static/style.css?v=20260608-db-workbench">
   </head>
   <body data-mode="{{ mode }}">
     <main class="shell">
@@ -15,6 +15,7 @@
             <a class="{% if mode == 'ds' %}active{% endif %}" href="/?mode=ds">DS 模式</a>
             <a class="{% if mode == 'original' %}active{% endif %}" href="/?mode=original">原文模式</a>
             <a href="/sources">源健康</a>
+            <a href="/digest">周报</a>
           </nav>
         </div>
         <div class="actions">
@@ -25,6 +26,8 @@
           <button data-action="translate">批量翻译标题</button>
           {% endif %}
           <button data-action="build-feed">重新生成 RSS</button>
+          <a class="button-link" href="/api/backup/db">备份数据库</a>
+          <a class="button-link" href="/api/export/articles.json">导出 JSON</a>
         </div>
       </header>
 
@@ -49,7 +52,7 @@
         <input type="hidden" name="mode" value="{{ mode }}">
         <label>
           <span>检索</span>
-          <input name="q" value="{{ query }}" placeholder="标题、摘要、笔记、标签">
+          <input name="q" value="{{ query }}" placeholder="标题、摘要、作者、DOI、笔记、标签">
         </label>
         <label>
           <span>智能检索</span>
@@ -79,15 +82,50 @@
           <input type="checkbox" name="favorite" value="true" {% if favorite %}checked{% endif %}>
           <span>只看收藏</span>
         </label>
+        <label>
+          <span>作者</span>
+          <input name="author" value="{{ author }}" placeholder="Wang">
+        </label>
+        <label>
+          <span>DOI</span>
+          <input name="doi" value="{{ doi }}" placeholder="10.">
+        </label>
+        <label>
+          <span>标签</span>
+          <input name="tag" value="{{ tag }}" placeholder="genomics">
+        </label>
+        <label>
+          <span>起始日期</span>
+          <input type="date" name="date_from" value="{{ date_from }}">
+        </label>
+        <label>
+          <span>结束日期</span>
+          <input type="date" name="date_to" value="{{ date_to }}">
+        </label>
         <button type="submit">筛选</button>
         <a class="button-link" href="/?mode={{ mode }}">清空</a>
       </form>
+      <div class="batch-toolbar">
+        <label class="check-filter">
+          <input type="checkbox" id="select-all-articles">
+          <span>全选当前页</span>
+        </label>
+        <button data-action="batch-status" data-status="read">批量已读</button>
+        <button data-action="batch-status" data-status="to_read">批量待精读</button>
+        <button data-action="batch-status" data-status="filtered">批量过滤</button>
+        <button class="danger-button" data-action="batch-delete">批量删除</button>
+      </div>
       <div class="filter-status">
         当前显示 {{ articles_count }} 篇
         {% if query %}<span>检索：{{ query }}</span>{% endif %}
         {% if smart_q %}<span>智能检索：{{ smart_q }}</span>{% endif %}
         {% if source %}<span>来源：{{ source }}</span>{% endif %}
         {% if read_status %}<span>状态：{{ read_status }}</span>{% endif %}
+        {% if author %}<span>作者：{{ author }}</span>{% endif %}
+        {% if doi %}<span>DOI：{{ doi }}</span>{% endif %}
+        {% if tag %}<span>标签：{{ tag }}</span>{% endif %}
+        {% if date_from %}<span>起始：{{ date_from }}</span>{% endif %}
+        {% if date_to %}<span>结束：{{ date_to }}</span>{% endif %}
         {% if favorite %}<span>只看收藏</span>{% endif %}
       </div>
       {% if smart_terms %}
@@ -105,6 +143,9 @@
         {% if articles %}
           {% for article in articles %}
           <article class="card source-{{ article.source_name|lower|replace(' ', '-')|replace('(', '')|replace(')', '')|replace('/', '-')|replace('.', '') }}" id="article-{{ article.article_id }}" data-article-id="{{ article.article_id }}" data-favorite="{{ article.favorite }}" data-read-status="{{ article.read_status }}">
+            <label class="select-article" title="选择文章">
+              <input type="checkbox" class="article-select" value="{{ article.article_id }}">
+            </label>
             <div class="card-main">
               {% if mode == "original" %}
               <div class="article-kicker">
@@ -122,6 +163,8 @@
                 {% if article.zotero_status == "saved" %}
                 <span class="zotero-badge">已入 Zotero</span>
                 {% endif %}
+                {% if article.authors %}<span>作者：{{ article.authors }}</span>{% endif %}
+                {% if article.doi %}<span>DOI：{{ article.doi }}</span>{% endif %}
               </div>
               {% if article.system_tags %}
               <div class="tag-row">
@@ -157,6 +200,8 @@
                 {% if article.zotero_status == "saved" %}
                 <span class="zotero-badge">已入 Zotero</span>
                 {% endif %}
+                {% if article.authors %}<span>作者：{{ article.authors }}</span>{% endif %}
+                {% if article.doi %}<span>DOI：{{ article.doi }}</span>{% endif %}
               </div>
               {% if article.system_tags %}
               <div class="tag-row">
@@ -213,8 +258,8 @@
               </button>
               <button data-action="set-status" data-status="to_read" data-id="{{ article.article_id }}">待精读</button>
               <button class="{% if article.read_status == 'read' %}status-done{% endif %}" data-action="set-status" data-status="read" data-id="{{ article.article_id }}">{% if article.read_status == 'read' %}已读{% else %}标为已读{% endif %}</button>
-              <button data-action="toggle-zotero" data-id="{{ article.article_id }}" data-zotero-status="{{ article.zotero_status }}">
-                {% if article.zotero_status == "saved" %}取消 Zotero{% else %}已入 Zotero{% endif %}
+              <button data-action="save-zotero" data-id="{{ article.article_id }}" data-zotero-status="{{ article.zotero_status }}">
+                {% if article.zotero_status == "saved" %}已入 Zotero{% else %}存入 Zotero{% endif %}
               </button>
               <a class="button-link" href="/api/articles/{{ article.article_id }}/ris">导出 RIS</a>
               <button class="danger-button" data-action="delete-article" data-id="{{ article.article_id }}">删除</button>
@@ -229,6 +274,6 @@
         {% endif %}
       </section>
     </main>
-    <script src="/static/app.js?v=20260608-hide-summary-skip"></script>
+    <script src="/static/app.js?v=20260608-db-workbench"></script>
   </body>
 </html>

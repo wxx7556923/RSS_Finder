@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import logging
+import re
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
@@ -85,6 +87,45 @@ def _update_description_if_better(
         conn.commit()
 
 
+def _clean_doi(value: str | None) -> str:
+    if not value:
+        return ""
+    match = re.search(r"10\.\d{4,9}/[-._;()/:A-Za-z0-9]+", value)
+    if not match:
+        return ""
+    return match.group(0).rstrip(".,;)")
+
+
+def _authors_from_description(value: str | None) -> str:
+    if not value:
+        return ""
+    match = re.search(r"(?:^|\n)Authors:\s*([^\n]+)", value)
+    return match.group(1).strip() if match else ""
+
+
+def _backfill_article_metadata(conn: sqlite3.Connection) -> None:
+    rows = conn.execute(
+        """
+        SELECT article_id, link, guid, original_description, authors, doi
+        FROM articles
+        WHERE COALESCE(authors, '') = '' OR COALESCE(doi, '') = ''
+        """
+    ).fetchall()
+    for row in rows:
+        authors = row["authors"] or _authors_from_description(row["original_description"])
+        doi = row["doi"] or _clean_doi("\n".join([str(row["guid"] or ""), str(row["link"] or ""), str(row["original_description"] or "")]))
+        if authors or doi:
+            conn.execute(
+                """
+                UPDATE articles
+                SET authors = COALESCE(NULLIF(?, ''), authors),
+                    doi = COALESCE(NULLIF(?, ''), doi)
+                WHERE article_id = ?
+                """,
+                (authors, doi, row["article_id"]),
+            )
+
+
 def get_connection() -> sqlite3.Connection:
     ensure_dirs()
     conn = sqlite3.connect(DB_PATH)
@@ -112,6 +153,8 @@ def init_db() -> None:
                 original_title TEXT,
                 translated_title TEXT,
                 original_description TEXT,
+                authors TEXT,
+                doi TEXT,
                 published_at TEXT,
                 fetched_at TEXT,
                 summary_line_1 TEXT,
@@ -124,9 +167,12 @@ def init_db() -> None:
             )
             """
         )
+        _ensure_column(conn, "articles", "authors", "TEXT")
+        _ensure_column(conn, "articles", "doi", "TEXT")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_articles_title_status ON articles(title_status)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_articles_summary_status ON articles(summary_status)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_articles_published_at ON articles(published_at)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_articles_doi ON articles(doi)")
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS article_meta (
@@ -183,6 +229,7 @@ def init_db() -> None:
             """
         )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_deleted_articles_link ON deleted_articles(link)")
+        _backfill_article_metadata(conn)
         conn.commit()
 
 
@@ -212,10 +259,10 @@ def insert_article(article: dict[str, Any]) -> bool:
                 """
                 INSERT INTO articles (
                     source_name, guid, link, dedupe_key, original_title, translated_title,
-                    original_description, published_at, fetched_at, summary_line_1,
+                    original_description, authors, doi, published_at, fetched_at, summary_line_1,
                     summary_line_2, summary_line_3, title_status, summary_status,
                     created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     article.get("source_name", ""),
@@ -225,6 +272,8 @@ def insert_article(article: dict[str, Any]) -> bool:
                     article.get("original_title", ""),
                     None,
                     article.get("original_description", ""),
+                    article.get("authors", ""),
+                    _clean_doi(article.get("doi") or article.get("guid") or article.get("link")),
                     article.get("published_at") or timestamp,
                     article.get("fetched_at") or timestamp,
                     None,
@@ -262,6 +311,11 @@ def list_articles(
     source: str | None = None,
     read_status: str | None = None,
     favorite: bool | None = None,
+    author: str | None = None,
+    doi: str | None = None,
+    tag: str | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
 ) -> list[sqlite3.Row]:
     init_db()
     where = []
@@ -274,13 +328,15 @@ def list_articles(
                 a.original_title LIKE ?
                 OR a.translated_title LIKE ?
                 OR a.original_description LIKE ?
+                OR a.authors LIKE ?
+                OR a.doi LIKE ?
                 OR m.user_note LIKE ?
                 OR m.tags LIKE ?
                 OR m.system_tags LIKE ?
             )
             """
         )
-        params.extend([like, like, like, like, like, like])
+        params.extend([like, like, like, like, like, like, like, like])
     clean_terms = [term.strip() for term in smart_terms or [] if term.strip()]
     if clean_terms:
         term_clauses = []
@@ -292,13 +348,15 @@ def list_articles(
                     a.original_title LIKE ?
                     OR a.translated_title LIKE ?
                     OR a.original_description LIKE ?
+                    OR a.authors LIKE ?
+                    OR a.doi LIKE ?
                     OR m.user_note LIKE ?
                     OR m.tags LIKE ?
                     OR m.system_tags LIKE ?
                 )
                 """
             )
-            params.extend([like, like, like, like, like, like])
+            params.extend([like, like, like, like, like, like, like, like])
         where.append("(" + " OR ".join(term_clauses) + ")")
     if source:
         where.append("a.source_name = ?")
@@ -309,6 +367,22 @@ def list_articles(
     if favorite is not None:
         where.append("COALESCE(m.favorite, 0) = ?")
         params.append(1 if favorite else 0)
+    if author:
+        where.append("a.authors LIKE ?")
+        params.append(f"%{author.strip()}%")
+    if doi:
+        where.append("a.doi LIKE ?")
+        params.append(f"%{doi.strip()}%")
+    if tag:
+        where.append("(m.tags LIKE ? OR m.system_tags LIKE ?)")
+        like = f"%{tag.strip()}%"
+        params.extend([like, like])
+    if date_from:
+        where.append("date(COALESCE(a.published_at, a.fetched_at, a.created_at)) >= date(?)")
+        params.append(date_from)
+    if date_to:
+        where.append("date(COALESCE(a.published_at, a.fetched_at, a.created_at)) <= date(?)")
+        params.append(date_to)
     where_sql = "WHERE " + " AND ".join(where) if where else ""
     with get_connection() as conn:
         return conn.execute(
@@ -321,7 +395,7 @@ def list_articles(
                 COALESCE(m.tags, '') AS tags,
                 COALESCE(m.system_tags, '') AS system_tags,
                 COALESCE(m.pdf_url, '') AS pdf_url,
-                COALESCE(m.doi, '') AS doi,
+                COALESCE(NULLIF(a.doi, ''), m.doi, '') AS doi,
                 COALESCE(m.zotero_status, 'not_saved') AS zotero_status,
                 m.opened_at,
                 m.noted_at
@@ -359,7 +433,7 @@ def get_article_detail(article_id: int) -> sqlite3.Row | None:
                 COALESCE(m.tags, '') AS tags,
                 COALESCE(m.system_tags, '') AS system_tags,
                 COALESCE(m.pdf_url, '') AS pdf_url,
-                COALESCE(m.doi, '') AS doi,
+                COALESCE(NULLIF(a.doi, ''), m.doi, '') AS doi,
                 COALESCE(m.zotero_status, 'not_saved') AS zotero_status,
                 m.opened_at,
                 m.noted_at
@@ -384,7 +458,7 @@ def iter_article_details() -> list[sqlite3.Row]:
                 COALESCE(m.tags, '') AS tags,
                 COALESCE(m.system_tags, '') AS system_tags,
                 COALESCE(m.pdf_url, '') AS pdf_url,
-                COALESCE(m.doi, '') AS doi,
+                COALESCE(NULLIF(a.doi, ''), m.doi, '') AS doi,
                 COALESCE(m.zotero_status, 'not_saved') AS zotero_status,
                 m.opened_at,
                 m.noted_at
@@ -426,6 +500,74 @@ def delete_article(article_id: int) -> bool:
         cursor = conn.execute("DELETE FROM articles WHERE article_id = ?", (article_id,))
         conn.commit()
         return cursor.rowcount > 0
+
+
+def batch_update_status(article_ids: list[int], read_status: str) -> int:
+    init_db()
+    ids = [int(article_id) for article_id in article_ids if int(article_id) > 0]
+    if not ids:
+        return 0
+    timestamp = now_iso()
+    with get_connection() as conn:
+        for article_id in ids:
+            conn.execute(
+                """
+                INSERT INTO article_meta (article_id, read_status, created_at, updated_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(article_id) DO UPDATE SET
+                    read_status = excluded.read_status,
+                    updated_at = excluded.updated_at
+                """,
+                (article_id, read_status, timestamp, timestamp),
+            )
+        conn.commit()
+    return len(ids)
+
+
+def batch_delete_articles(article_ids: list[int]) -> int:
+    count = 0
+    for article_id in article_ids:
+        if delete_article(int(article_id)):
+            count += 1
+    return count
+
+
+def export_articles_json() -> str:
+    rows = iter_article_details()
+    payload = []
+    for row in rows:
+        payload.append({key: row[key] for key in row.keys()})
+    return json.dumps(payload, ensure_ascii=False, indent=2)
+
+
+def recent_digest(days: int = 7, limit: int = 200) -> list[sqlite3.Row]:
+    init_db()
+    start = (datetime.now(timezone.utc) - timedelta(days=max(1, days))).date().isoformat()
+    with get_connection() as conn:
+        return conn.execute(
+            """
+            SELECT
+                a.*,
+                COALESCE(m.read_status, 'unread') AS read_status,
+                COALESCE(m.favorite, 0) AS favorite,
+                COALESCE(m.user_note, '') AS user_note,
+                COALESCE(m.tags, '') AS tags,
+                COALESCE(m.system_tags, '') AS system_tags,
+                COALESCE(NULLIF(a.doi, ''), m.doi, '') AS doi,
+                COALESCE(m.zotero_status, 'not_saved') AS zotero_status
+            FROM articles a
+            LEFT JOIN article_meta m ON m.article_id = a.article_id
+            WHERE date(COALESCE(a.published_at, a.fetched_at, a.created_at)) >= date(?)
+              AND COALESCE(m.read_status, 'unread') != 'filtered'
+            ORDER BY
+                COALESCE(m.favorite, 0) DESC,
+                CASE WHEN COALESCE(m.read_status, 'unread') = 'to_read' THEN 0 ELSE 1 END,
+                datetime(COALESCE(a.published_at, a.fetched_at, a.created_at)) DESC,
+                a.article_id DESC
+            LIMIT ?
+            """,
+            (start, limit),
+        ).fetchall()
 
 
 def get_articles_for_title_translation(limit: int | None = None) -> list[sqlite3.Row]:
@@ -626,7 +768,7 @@ def update_article_meta(
                 COALESCE(m.tags, '') AS tags,
                 COALESCE(m.system_tags, '') AS system_tags,
                 COALESCE(m.pdf_url, '') AS pdf_url,
-                COALESCE(m.doi, '') AS doi,
+                COALESCE(NULLIF(a.doi, ''), m.doi, '') AS doi,
                 COALESCE(m.zotero_status, 'not_saved') AS zotero_status,
                 m.opened_at,
                 m.noted_at

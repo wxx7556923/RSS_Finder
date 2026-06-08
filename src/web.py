@@ -55,6 +55,11 @@ async def index(
     source: str = Query(default=""),
     read_status: str = Query(default=""),
     favorite: bool = Query(default=False),
+    author: str = Query(default=""),
+    doi: str = Query(default=""),
+    tag: str = Query(default=""),
+    date_from: str = Query(default=""),
+    date_to: str = Query(default=""),
 ):
     mode_value = mode or str(settings.section("app").get("default_mode") or "original")
     view_mode = "original" if mode_value == "original" else "ds"
@@ -80,6 +85,11 @@ async def index(
         source=source.strip() or None,
         read_status=effective_read_status,
         favorite=True if favorite else None,
+        author=author.strip() or None,
+        doi=doi.strip() or None,
+        tag=tag.strip() or None,
+        date_from=date_from.strip() or None,
+        date_to=date_to.strip() or None,
     )
     if not read_status.strip():
         articles = [article for article in articles if article["read_status"] not in {"filtered", "read"}]
@@ -101,6 +111,11 @@ async def index(
             "source": source,
             "read_status": read_status,
             "favorite": favorite,
+            "author": author,
+            "doi": doi,
+            "tag": tag,
+            "date_from": date_from,
+            "date_to": date_to,
             "sources": _source_options(),
             "feed_url": "/feed-original.xml" if view_mode == "original" else "/feed.xml",
         },
@@ -223,6 +238,43 @@ async def api_article_meta(article_id: int, request: Request):
         raise HTTPException(status_code=404, detail="文章不存在")
 
 
+@app.post("/api/articles/{article_id}/zotero")
+async def api_article_zotero(article_id: int):
+    try:
+        from . import zotero_client
+
+        return JSONResponse(await zotero_client.save_article(article_id))
+    except KeyError:
+        raise HTTPException(status_code=404, detail="文章不存在")
+    except ValueError as exc:
+        storage.update_article_meta(article_id, zotero_status="saved")
+        return JSONResponse({"article_id": article_id, "zotero_status": "saved", "message": str(exc), "local_only": True})
+    except Exception as exc:
+        logger.exception("Zotero save failed for article_id=%s: %s", article_id, exc)
+        raise HTTPException(status_code=500, detail=f"Zotero 保存失败：{exc}")
+
+
+@app.post("/api/articles/batch")
+async def api_articles_batch(request: Request):
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = {}
+    ids = [int(value) for value in payload.get("article_ids") or []]
+    action = str(payload.get("action") or "").strip()
+    if not ids:
+        raise HTTPException(status_code=400, detail="未选择文章")
+    if action in {"read", "to_read", "unread", "filtered"}:
+        count = storage.batch_update_status(ids, action)
+        return JSONResponse({"action": action, "count": count})
+    if action == "delete":
+        count = storage.batch_delete_articles(ids)
+        rss_writer.build_feed()
+        rss_writer.build_original_feed()
+        return JSONResponse({"action": action, "count": count})
+    raise HTTPException(status_code=400, detail="无效批量操作")
+
+
 @app.post("/api/articles/{article_id}/delete")
 async def api_delete_article(article_id: int):
     if not storage.delete_article(article_id):
@@ -259,6 +311,15 @@ async def api_article_ris(article_id: int):
         f"AB  - {_ris_escape(article['original_description'])}",
         f"UR  - {_ris_escape(article['link'])}",
     ]
+    if article["authors"]:
+        for author in str(article["authors"]).split(","):
+            author = author.strip()
+            if author:
+                lines.append(f"AU  - {_ris_escape(author)}")
+    if article["doi"]:
+        lines.append(f"DO  - {_ris_escape(article['doi'])}")
+    if article["published_at"]:
+        lines.append(f"PY  - {_ris_escape(article['published_at'][:4])}")
     note = article["user_note"]
     if note:
         lines.append(f"N1  - {_ris_escape(note)}")
@@ -321,7 +382,36 @@ async def sources(request: Request):
         {
             "request": request,
             "sources": storage.list_source_health(),
+            "app_title": settings.app_title(),
         },
+    )
+
+
+@app.get("/digest")
+async def digest(request: Request, days: int = Query(default=7, ge=1, le=90)):
+    articles = storage.recent_digest(days=days, limit=300)
+    return templates.TemplateResponse(
+        "digest.html",
+        {"request": request, "articles": articles, "days": days, "app_title": settings.app_title()},
+    )
+
+
+@app.get("/api/backup/db")
+async def api_backup_db():
+    storage.init_db()
+    return FileResponse(
+        storage.DB_PATH,
+        media_type="application/vnd.sqlite3",
+        filename="rss_ai.db",
+    )
+
+
+@app.get("/api/export/articles.json")
+async def api_export_articles_json():
+    return PlainTextResponse(
+        storage.export_articles_json(),
+        media_type="application/json; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="paper-radar-articles.json"'},
     )
 
 

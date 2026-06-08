@@ -50,6 +50,13 @@ def main() -> int:
     else:
         warn(f"{key_env} is not configured. Fetching RSS works, AI translation/summaries will fail.")
 
+    zotero = settings.zotero_config()
+    zotero_key_env = str(zotero.get("api_key_env") or "ZOTERO_API_KEY")
+    if os.getenv(zotero_key_env) or str(zotero.get("api_key") or "").strip():
+        ok(f"{zotero_key_env} is configured")
+    else:
+        warn(f"{zotero_key_env} is not configured. Zotero saving will use local status only.")
+
     feeds = settings.feeds()
     if feeds:
         ok(f"{len(feeds)} RSS feed(s) configured")

@@ -3,19 +3,20 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>源健康</title>
+    <title>{{ app_title }} - 源健康</title>
     <link rel="stylesheet" href="/static/style.css">
   </head>
   <body>
     <main class="shell">
       <header class="topbar">
         <div>
-          <h1>源健康</h1>
+          <h1>{{ app_title }} · 源健康</h1>
           <p class="feed-link">记录每个来源最近一次抓取成功或失败的状态。</p>
           <nav class="mode-switch" aria-label="导航">
             <a href="/?mode=original">原文模式</a>
             <a href="/?mode=ds">DS 模式</a>
             <a class="active" href="/sources">源健康</a>
+            <a href="/digest">周报</a>
           </nav>
         </div>
       </header>

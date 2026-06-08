@@ -1,6 +1,6 @@
-# RSS Finder
+# Paper Radar
 
-面向科研用户的本地期刊追踪工作台。RSS Finder 会抓取期刊 RSS、部分官网文章列表、bioRxiv API 和 arXiv feed，把文章保存到本地 SQLite 数据库，并提供网页界面用于浏览、筛选、标记、笔记、导出和生成订阅输出。
+面向科研用户的本地期刊追踪工作台。Paper Radar 会抓取期刊 RSS、部分官网文章列表、bioRxiv API 和 arXiv feed，把文章保存到本地 SQLite 数据库，并提供网页界面用于浏览、筛选、标记、笔记、导出和生成订阅输出。
 
 仓库不包含个人数据：没有 `.env`、数据库、日志、RSS 输出文件或 FreshRSS 数据卷。
 
@@ -16,13 +16,16 @@
 - 文章管理：收藏、笔记、手动标签、删除、Zotero 状态标记
 - 删除保护：删除过的文章会记录在本地数据库中，后续同步不会重新导入同一篇
 - 文献导出：单篇导出 RIS，方便导入 Zotero、EndNote 等文献管理工具
+- Zotero 保存：配置 Zotero API 后可一键保存文章到个人库或群组库
+- 批量操作：当前页多选后批量标已读、待精读、过滤或删除
+- 数据备份：一键下载 SQLite 数据库，或导出文章 JSON
 - RSS 输出：提供 `/feed.xml` 和 `/feed-original.xml`，可被 FreshRSS 或其他 RSS 阅读器订阅
 - 来源健康记录：记录各来源最近抓取状态、HTTP 状态码、条目数量和错误信息
 - Codex 工作流：提供期刊名查 RSS 的提示词模板，方便继续添加新期刊
 
 ## 数据库管理能力
 
-RSS Finder 的核心数据保存在 `data/rss_ai.db`。网页上的阅读状态、收藏、笔记、标签、Zotero 标记、删除记录都基于这个数据库管理。
+Paper Radar 的核心数据保存在 `data/rss_ai.db`。网页上的阅读状态、收藏、笔记、标签、Zotero 标记、删除记录都基于这个数据库管理。
 
 数据库中会保存：
 
@@ -117,6 +120,12 @@ cp .env.example .env
 DEEPSEEK_API_KEY=your_deepseek_api_key_here
 ```
 
+也可以用安装脚本准备环境：
+
+```bash
+bash install.sh
+```
+
 启动 Web 控制台：
 
 ```bash
@@ -166,6 +175,12 @@ http://localhost:8090
 - Zotero 状态标记
 - 删除文章
 - 导出 RIS
+- 批量标已读
+- 批量待精读
+- 批量过滤
+- 批量删除
+- 数据库备份
+- 文章 JSON 导出
 
 ## RSS 输出
 
@@ -178,6 +193,21 @@ http://localhost:8090/feed-original.xml
 
 - `feed.xml`：翻译标题并保留来源摘要后的 RSS
 - `feed-original.xml`：原始标题和来源原始摘要
+
+## Zotero 保存
+
+`.env` 中可以配置 Zotero API：
+
+```bash
+ZOTERO_API_KEY=your_zotero_api_key
+ZOTERO_USER_ID=your_user_id
+ZOTERO_GROUP_ID=
+ZOTERO_COLLECTION_KEY=
+```
+
+使用个人库时填写 `ZOTERO_USER_ID`。使用群组库时填写 `ZOTERO_GROUP_ID`。`ZOTERO_COLLECTION_KEY` 可选，用于保存到指定 collection。
+
+未配置 Zotero API 时，网页中的 `存入 Zotero` 会保存本地 Zotero 状态标记。
 
 ## 配置来源
 

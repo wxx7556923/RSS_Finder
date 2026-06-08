@@ -70,10 +70,10 @@ function updateFavorite(card, favorite) {
 
 function updateZotero(card, statusValue) {
   const saved = statusValue === "saved";
-  const button = card.querySelector('[data-action="toggle-zotero"]');
+  const button = card.querySelector('[data-action="save-zotero"]');
   if (button) {
     button.dataset.zoteroStatus = statusValue;
-    button.textContent = saved ? "取消 Zotero" : "已入 Zotero";
+    button.textContent = saved ? "已入 Zotero" : "存入 Zotero";
   }
   let badge = card.querySelector(".zotero-badge");
   const meta = card.querySelector(".meta");
@@ -84,6 +84,10 @@ function updateZotero(card, statusValue) {
     meta.appendChild(badge);
   }
   if (!saved && badge) badge.remove();
+}
+
+function selectedArticleIds() {
+  return [...document.querySelectorAll(".article-select:checked")].map((item) => Number(item.value));
 }
 
 function escapeHtml(value) {
@@ -187,14 +191,13 @@ document.addEventListener("click", async (event) => {
       showNotice("阅读状态已更新。");
     }
 
-    if (action === "toggle-zotero") {
+    if (action === "save-zotero") {
       const id = target.dataset.id;
       const card = document.querySelector(`#article-${id}`);
-      const nextStatus = target.dataset.zoteroStatus === "saved" ? "not_saved" : "saved";
-      setLoading(target, true, "保存中...");
-      const data = await postJson(`/api/articles/${id}/meta`, { zotero_status: nextStatus });
+      setLoading(target, true, "保存 Zotero...");
+      const data = await postJson(`/api/articles/${id}/zotero`);
       updateZotero(card, data.zotero_status);
-      showNotice(data.zotero_status === "saved" ? "已标记为入 Zotero。" : "已取消 Zotero 标记。");
+      showNotice(data.local_only ? "未配置 Zotero API，已保存本地 Zotero 标记。" : "已保存到 Zotero。");
     }
 
     if (action === "delete-article") {
@@ -204,6 +207,22 @@ document.addEventListener("click", async (event) => {
       await postJson(`/api/articles/${id}/delete`);
       card?.remove();
       showNotice("文章已从本地数据库删除。");
+    }
+
+    if (action === "batch-status") {
+      const ids = selectedArticleIds();
+      setLoading(target, true, "批量保存...");
+      const data = await postJson("/api/articles/batch", { article_ids: ids, action: target.dataset.status });
+      showNotice(`批量更新完成：${data.count} 篇。`);
+      window.location.reload();
+    }
+
+    if (action === "batch-delete") {
+      const ids = selectedArticleIds();
+      setLoading(target, true, "批量删除...");
+      const data = await postJson("/api/articles/batch", { article_ids: ids, action: "delete" });
+      for (const id of ids) document.querySelector(`#article-${id}`)?.remove();
+      showNotice(`批量删除完成：${data.count} 篇。`);
     }
   } catch (error) {
     showNotice(error.message || "请求失败", "error");
@@ -217,6 +236,15 @@ if (filters) {
     const target = event.target;
     if (target.matches("select") || target.matches('input[type="checkbox"]')) {
       filters.requestSubmit();
+    }
+  });
+}
+
+const selectAll = document.querySelector("#select-all-articles");
+if (selectAll) {
+  selectAll.addEventListener("change", () => {
+    for (const checkbox of document.querySelectorAll(".article-select")) {
+      checkbox.checked = selectAll.checked;
     }
   });
 }

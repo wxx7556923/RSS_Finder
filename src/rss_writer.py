@@ -47,6 +47,8 @@ def _description(article: Any) -> str:
         [
             summary_text,
             f"原文标题：\n{article['original_title'] or ''}",
+            f"作者：\n{article['authors'] or ''}",
+            f"DOI：\n{article['doi'] or ''}",
             f"来源：\n{article['source_name'] or ''}",
             f"原文链接：\n{article['link'] or ''}",
         ]
@@ -58,6 +60,8 @@ def _original_description(article: Any) -> str:
     return "\n\n".join(
         [
             f"原始摘要：\n{source_text}",
+            f"作者：\n{article['authors'] or ''}",
+            f"DOI：\n{article['doi'] or ''}",
             f"来源：\n{article['source_name'] or ''}",
             f"原文链接：\n{article['link'] or ''}",
         ]
@@ -69,7 +73,7 @@ def build_feed(path: Path = OUTPUT_XML) -> dict[str, Any]:
     storage.ensure_dirs()
 
     config = settings.output_rss_config()
-    channel_title = str(config.get("title") or "AI 中文摘要")
+    channel_title = str(config.get("title") or "Paper Radar Feed")
     channel_link = str(config.get("link") or "http://localhost:8090/feed.xml")
     channel_description = str(config.get("description") or "自动翻译标题并保留 RSS 摘要的 Feed")
 
@@ -104,7 +108,7 @@ def build_original_feed(path: Path = OUTPUT_ORIGINAL_XML) -> dict[str, Any]:
     storage.ensure_dirs()
 
     config = settings.output_rss_config()
-    channel_title = str(config.get("original_title") or "原文 RSS")
+    channel_title = str(config.get("original_title") or "Paper Radar Original Feed")
     channel_link = str(config.get("link") or "http://localhost:8090/feed.xml").replace("feed.xml", "feed-original.xml")
     channel_description = str(config.get("original_description") or "不调用 DeepSeek，保留原始标题和 RSS 原始摘要的 Feed")
 

@@ -206,7 +206,7 @@ button:disabled {
 
 .filters {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) minmax(240px, 1.4fr) minmax(170px, 0.8fr) minmax(130px, 0.7fr) auto auto auto;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 10px;
   align-items: end;
   background: var(--panel);
@@ -214,6 +214,18 @@ button:disabled {
   border-radius: 8px;
   margin-bottom: 12px;
   padding: 10px;
+}
+
+.batch-toolbar {
+  align-items: center;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -4px 0 12px;
+  padding: 8px 10px;
 }
 
 .filters label,
@@ -293,13 +305,23 @@ button:disabled {
 
 .card {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 168px;
+  grid-template-columns: 26px minmax(0, 1fr) 168px;
   gap: 14px;
   background: var(--panel);
   border: 1px solid var(--line);
   border-left: 5px solid #8fa3bd;
   border-radius: 8px;
   padding: 14px 14px 14px 16px;
+}
+
+.select-article {
+  align-items: start;
+  display: flex;
+  padding-top: 4px;
+}
+
+.select-article input {
+  width: auto;
 }
 
 .source-nature,
@@ -565,6 +587,10 @@ button:disabled {
   .card {
     grid-template-columns: 1fr;
     display: grid;
+  }
+
+  .select-article {
+    padding-top: 0;
   }
 
   .stats {

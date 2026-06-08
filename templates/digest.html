@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ app_title }} - 文献周报</title>
+    <link rel="stylesheet" href="/static/style.css?v=20260608-db-workbench">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <h1>{{ app_title }} · 文献周报</h1>
+          <p class="feed-link">最近 {{ days }} 天的本地文章汇总。</p>
+          <nav class="mode-switch" aria-label="导航">
+            <a href="/?mode=original">原文模式</a>
+            <a href="/?mode=ds">DS 模式</a>
+            <a href="/sources">源健康</a>
+            <a class="active" href="/digest">周报</a>
+          </nav>
+        </div>
+      </header>
+
+      <form class="filters" method="get" action="/digest">
+        <label>
+          <span>天数</span>
+          <input type="number" name="days" value="{{ days }}" min="1" max="90">
+        </label>
+        <button type="submit">刷新</button>
+      </form>
+
+      <section class="articles">
+        {% if articles %}
+          {% for article in articles %}
+          <article class="card">
+            <div></div>
+            <div class="card-main">
+              <div class="article-kicker">
+                <span class="source-name">{{ article.source_name }}</span>
+                <span>{{ article.published_at or article.fetched_at }}</span>
+                <span>状态：{{ article.read_status }}</span>
+              </div>
+              <h2 class="title-cn">{{ article.translated_title or article.original_title }}</h2>
+              {% if article.translated_title %}<p class="title-original">{{ article.original_title }}</p>{% endif %}
+              <div class="meta">
+                {% if article.favorite %}<span class="favorite-badge">收藏</span>{% endif %}
+                {% if article.read_status == "to_read" %}<span>待精读</span>{% endif %}
+                {% if article.authors %}<span>作者：{{ article.authors }}</span>{% endif %}
+                {% if article.doi %}<span>DOI：{{ article.doi }}</span>{% endif %}
+              </div>
+              {% if article.system_tags %}
+              <div class="tag-row">
+                {% for tag in article.system_tags.split(",") %}
+                  {% if tag.strip() %}<span>{{ tag.strip() }}</span>{% endif %}
+                {% endfor %}
+              </div>
+              {% endif %}
+              <div class="summary">
+                <p>{{ article.original_description or "来源未提供摘要。" }}</p>
+              </div>
+            </div>
+            <div class="card-actions">
+              {% if article.link %}
+              <a class="button-link primary-link" href="/api/articles/{{ article.article_id }}/open" target="_blank" rel="noreferrer">打开原文</a>
+              {% endif %}
+              <a class="button-link" href="/api/articles/{{ article.article_id }}/ris">导出 RIS</a>
+            </div>
+          </article>
+          {% endfor %}
+        {% else %}
+          <section class="empty">
+            <h2>暂无文章</h2>
+            <p>先回首页同步文章。</p>
+          </section>
+        {% endif %}
+      </section>
+    </main>
+  </body>
+</html>

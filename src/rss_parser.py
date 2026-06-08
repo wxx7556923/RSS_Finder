@@ -32,6 +32,40 @@ def _clean_text(value: str | None) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+def _clean_doi(value: str | None) -> str:
+    if not value:
+        return ""
+    match = re.search(r"10\.\d{4,9}/[-._;()/:A-Za-z0-9]+", value)
+    return match.group(0).rstrip(".,;)") if match else ""
+
+
+def _entry_authors(entry: Any) -> str:
+    authors = entry.get("authors")
+    values = []
+    if isinstance(authors, list):
+        values = [_clean_text(str(item.get("name") or item.get("email") or "")) for item in authors]
+    if not values:
+        raw = entry.get("author") or entry.get("creator") or entry.get("dc_creator")
+        if isinstance(raw, list):
+            values = [_clean_text(str(item)) for item in raw]
+        elif raw:
+            values = [_clean_text(str(raw))]
+    return ", ".join([value for value in values if value])
+
+
+def _entry_doi(entry: Any) -> str:
+    values = [
+        str(entry.get("prism_doi") or ""),
+        str(entry.get("doi") or ""),
+        str(entry.get("dc_identifier") or ""),
+        str(entry.get("id") or ""),
+        str(entry.get("guid") or ""),
+        str(entry.get("link") or ""),
+        str(entry.get("summary") or ""),
+    ]
+    return _clean_doi("\n".join(values))
+
+
 def _entry_time_to_iso(entry: Any, fallback: str) -> str:
     parsed = entry.get("published_parsed") or entry.get("updated_parsed")
     if parsed:
@@ -154,6 +188,8 @@ def _biorxiv_article(record: dict[str, Any], category: str, fetched_at: str) -> 
         "link": link,
         "original_title": _clean_text(str(record.get("title") or "")) or "(no title)",
         "original_description": "\n\n".join(description_parts),
+        "authors": authors,
+        "doi": doi,
         "published_at": published_at,
         "fetched_at": fetched_at,
     }
@@ -308,6 +344,8 @@ def _parse_nature_articles_html(source: dict[str, Any], body: str, fetched_at: s
                 "link": link,
                 "original_title": title,
                 "original_description": "\n\n".join(description_parts),
+                "authors": ", ".join(authors),
+                "doi": _clean_doi(link),
                 "published_at": published_at,
                 "fetched_at": fetched_at,
             }
@@ -342,6 +380,8 @@ def _parse_springer_articles_html(source: dict[str, Any], body: str, fetched_at:
                 "link": link,
                 "original_title": title,
                 "original_description": "\n\n".join(description_parts),
+                "authors": ", ".join(authors),
+                "doi": _clean_doi(link),
                 "published_at": _iso_date(date_text, fetched_at),
                 "fetched_at": fetched_at,
             }
@@ -374,6 +414,8 @@ def _parse_cshl_early_articles_html(source: dict[str, Any], body: str, fetched_a
                 "link": link,
                 "original_title": title,
                 "original_description": description,
+                "authors": ", ".join(authors),
+                "doi": _clean_doi(link),
                 "published_at": _iso_date(date_text, fetched_at),
                 "fetched_at": fetched_at,
             }
@@ -498,12 +540,21 @@ async def fetch_and_store(limit: int | None = None) -> dict[str, int]:
                 link = str(entry.get("link") or "").strip()
                 guid = str(entry.get("id") or entry.get("guid") or link or "").strip()
                 description = _entry_description(entry)
+                authors = _entry_authors(entry)
+                doi = _entry_doi(entry)
+                description_parts = []
+                if authors and "Authors:" not in description:
+                    description_parts.append("Authors: " + authors)
+                if description:
+                    description_parts.append(description)
                 article = {
                     "source_name": feed["name"],
                     "guid": guid,
                     "link": link,
                     "original_title": title,
-                    "original_description": description,
+                    "original_description": "\n\n".join(description_parts),
+                    "authors": authors,
+                    "doi": doi,
                     "published_at": _entry_time_to_iso(entry, fetched_at),
                     "fetched_at": fetched_at,
                 }

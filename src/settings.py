@@ -16,7 +16,7 @@ APP_CONFIG_PATH = storage.BASE_DIR / "config" / "app.yml"
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "app": {
-        "title": "前沿期刊进展",
+        "title": "Paper Radar",
         "default_mode": "original",
         "page_limit": 2000,
     },
@@ -30,11 +30,21 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "summary_timeout_seconds": 60,
         "title_translate_concurrency": 5,
     },
+    "zotero": {
+        "api_key_env": "ZOTERO_API_KEY",
+        "user_id_env": "ZOTERO_USER_ID",
+        "group_id_env": "ZOTERO_GROUP_ID",
+        "collection_key_env": "ZOTERO_COLLECTION_KEY",
+        "api_key": "",
+        "user_id": "",
+        "group_id": "",
+        "collection_key": "",
+    },
     "output_rss": {
-        "title": "AI 中文摘要",
+        "title": "Paper Radar Feed",
         "link": "http://localhost:8090/feed.xml",
         "description": "自动翻译标题并保留 RSS 摘要的 Feed",
-        "original_title": "原文 RSS",
+        "original_title": "Paper Radar Original Feed",
         "original_description": "不调用 DeepSeek，保留原始标题和 RSS 原始摘要的 Feed",
     },
     "feeds": [],
@@ -71,6 +81,17 @@ def get_config() -> dict[str, Any]:
     env_api_key = os.getenv(api_key_env, "").strip()
     if env_api_key:
         deepseek["api_key"] = env_api_key
+    zotero = config.setdefault("zotero", {})
+    for key, default_env in [
+        ("api_key", "ZOTERO_API_KEY"),
+        ("user_id", "ZOTERO_USER_ID"),
+        ("group_id", "ZOTERO_GROUP_ID"),
+        ("collection_key", "ZOTERO_COLLECTION_KEY"),
+    ]:
+        env_name = str(zotero.get(f"{key}_env") or default_env)
+        env_value = os.getenv(env_name, "").strip()
+        if env_value:
+            zotero[key] = env_value
     return config
 
 
@@ -135,6 +156,10 @@ def rules_config() -> dict[str, Any]:
 
 def deepseek_config() -> dict[str, Any]:
     return section("deepseek")
+
+
+def zotero_config() -> dict[str, Any]:
+    return section("zotero")
 
 
 def output_rss_config() -> dict[str, Any]:

@@ -1,5 +1,5 @@
 app:
-  title: "RSS AI Summary"
+  title: "Paper Radar"
   default_mode: "original"
   page_limit: 2000
 
@@ -14,10 +14,10 @@ deepseek:
   title_translate_concurrency: 3
 
 output_rss:
-  title: "RSS AI Summary Feed"
+  title: "Paper Radar Feed"
   link: "http://localhost:8090/feed.xml"
   description: "RSS feed with translated titles and source descriptions"
-  original_title: "Original RSS Feed"
+  original_title: "Paper Radar Original Feed"
   original_description: "Original titles and descriptions without AI processing"
 
 html_sources:
