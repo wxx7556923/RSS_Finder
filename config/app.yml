@@ -1,0 +1,137 @@
+app:
+  title: "RSS AI Summary"
+  default_mode: "original"
+  page_limit: 2000
+
+deepseek:
+  api_key_env: "DEEPSEEK_API_KEY"
+  api_key: ""
+  base_url: "https://api.deepseek.com"
+  model: "deepseek-chat"
+  max_retries: 3
+  title_timeout_seconds: 30
+  summary_timeout_seconds: 60
+  title_translate_concurrency: 3
+
+output_rss:
+  title: "RSS AI Summary Feed"
+  link: "http://localhost:8090/feed.xml"
+  description: "RSS feed with translated titles and optional AI summaries"
+  original_title: "Original RSS Feed"
+  original_description: "Original titles and descriptions without AI processing"
+
+# Default starter set for plant biology, genomics, AI/ML, and broad science journals.
+# Delete sources you do not need, or add more sources under this list.
+# If you only know the journal name, see codex_workflows/journal_to_rss/SKILL.md.
+feeds:
+  - name: "Nature"
+    url: "https://www.nature.com/nature.rss"
+  - name: "Nature Genetics"
+    url: "https://www.nature.com/ng.rss"
+  - name: "Nature Communications"
+    url: "https://www.nature.com/ncomms.rss"
+  - name: "Nature Plants"
+    url: "https://www.nature.com/nplants.rss"
+  - name: "Nature Machine Intelligence"
+    url: "https://www.nature.com/natmachintell.rss"
+  - name: "Nature Computational Science"
+    url: "https://www.nature.com/natcomputsci.rss"
+  - name: "Nature Reviews Genetics"
+    url: "https://www.nature.com/nrg.rss"
+  - name: "Nature Methods"
+    url: "https://www.nature.com/nmeth.rss"
+  - name: "Nature Biotechnology"
+    url: "https://www.nature.com/nbt.rss"
+  - name: "Science"
+    url: "https://www.science.org/action/showFeed?type=etoc&feed=rss&jc=science"
+  - name: "Science Advances"
+    url: "https://www.science.org/action/showFeed?type=etoc&feed=rss&jc=sciadv"
+  - name: "Cell (ScienceDirect Feed)"
+    url: "https://rss.sciencedirect.com/publication/science/00928674"
+  - name: "Molecular Plant (ScienceDirect Feed)"
+    url: "https://rss.sciencedirect.com/publication/science/16738527"
+  - name: "Plant Communications (ScienceDirect Feed)"
+    url: "https://rss.sciencedirect.com/publication/science/25903462"
+  - name: "The Plant Cell - Advance Articles (Oxford Academic)"
+    url: "https://academic.oup.com/rss/site_6317/advanceAccess_4077.xml"
+  - name: "Journal of Experimental Botany - Advance Articles (Oxford Academic)"
+    url: "https://academic.oup.com/rss/site_5304/advanceAccess_3170.xml"
+  - name: "Developmental Cell (ScienceDirect Feed)"
+    url: "https://rss.sciencedirect.com/publication/science/15345807"
+  - name: "Current Biology (ScienceDirect Feed)"
+    url: "https://rss.sciencedirect.com/publication/science/09609822"
+  - name: "Cell Reports (ScienceDirect Feed)"
+    url: "https://rss.sciencedirect.com/publication/science/22111247"
+  - name: "Trends in Plant Science (ScienceDirect Feed)"
+    url: "https://rss.sciencedirect.com/publication/science/13601385"
+  - name: "Trends in Genetics (ScienceDirect Feed)"
+    url: "https://rss.sciencedirect.com/publication/science/01689525"
+  - name: "PNAS Current"
+    url: "https://www.pnas.org/rss/current.xml"
+  - name: "Advanced Science (Wiley)"
+    url: "https://onlinelibrary.wiley.com/action/showFeed?type=etoc&feed=rss&jc=21983844"
+  - name: "New Phytologist (Wiley)"
+    url: "https://onlinelibrary.wiley.com/action/showFeed?type=etoc&feed=rss&jc=14698137"
+  - name: "Plant Biotechnology Journal (Wiley)"
+    url: "https://onlinelibrary.wiley.com/action/showFeed?type=etoc&feed=rss&jc=14677652"
+  - name: "The Plant Journal (Wiley)"
+    url: "https://onlinelibrary.wiley.com/action/showFeed?type=etoc&feed=rss&jc=1365313x"
+  - name: "Plant, Cell & Environment (Wiley)"
+    url: "https://onlinelibrary.wiley.com/action/showFeed?type=etoc&feed=rss&jc=13653040"
+  - name: "Genome Biology (Springer)"
+    url: "https://link.springer.com/search.rss?facet-journal-id=13059"
+  - name: "Genome Research - GR-in-Advance (CSHL Press)"
+    url: "https://genome.cshlp.org/rss/ahead.xml"
+  - name: "Cell Genomics (ScienceDirect Feed)"
+    url: "https://rss.sciencedirect.com/publication/science/2666979X"
+  - name: "arXiv cs.CL"
+    url: "https://export.arxiv.org/api/query?search_query=cat:cs.CL&start=0&max_results=50&sortBy=submittedDate&sortOrder=descending"
+  - name: "arXiv cs.LG"
+    url: "https://export.arxiv.org/api/query?search_query=cat:cs.LG&start=0&max_results=50&sortBy=submittedDate&sortOrder=descending"
+  - name: "arXiv cs.AI"
+    url: "https://export.arxiv.org/api/query?search_query=cat:cs.AI&start=0&max_results=50&sortBy=submittedDate&sortOrder=descending"
+  - name: "arXiv q-bio.BM"
+    url: "https://export.arxiv.org/api/query?search_query=cat:q-bio.BM&start=0&max_results=50&sortBy=submittedDate&sortOrder=descending"
+
+# Optional bioRxiv API import. Disable it if you only want journal RSS feeds.
+biorxiv_api:
+  enabled: true
+  base_url: "https://api.biorxiv.org"
+  server: "biorxiv"
+  days_back: 2
+  request_interval_seconds: 2
+  max_pages_per_category: 5
+  categories:
+    - "bioinformatics"
+    - "genomics"
+    - "systems_biology"
+    - "molecular_biology"
+    - "cell_biology"
+
+rules:
+  exclude_rules:
+    - name: "Non-research items"
+      source_contains: ""
+      keywords:
+        - "news"
+        - "podcast"
+        - "editorial"
+        - "correction"
+        - "retraction"
+        - "erratum"
+        - "book review"
+  tag_rules:
+    - tag: "AI / ML"
+      keywords:
+        - "artificial intelligence"
+        - "machine learning"
+        - "deep learning"
+        - "large language model"
+        - "foundation model"
+    - tag: "genomics"
+      keywords:
+        - "genome"
+        - "genomics"
+        - "transcriptome"
+        - "single-cell"
+        - "GWAS"

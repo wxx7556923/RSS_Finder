@@ -1,0 +1,11 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+
+data/*.db
+logs/*.log
+output/*.xml
+volumes/
+
+.DS_Store

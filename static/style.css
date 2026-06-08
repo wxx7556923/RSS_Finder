@@ -1,0 +1,577 @@
+:root {
+  color-scheme: light;
+  --bg: #f3f5f8;
+  --panel: #ffffff;
+  --text: #1f2933;
+  --muted: #657383;
+  --line: #d8dee7;
+  --accent: #276ef1;
+  --accent-dark: #1f58c7;
+  --danger: #b42318;
+  --ok-bg: #eaf6ef;
+  --error-bg: #fff0f0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  line-height: 1.55;
+}
+
+a {
+  color: var(--accent);
+}
+
+.shell {
+  width: min(1260px, calc(100% - 28px));
+  margin: 0 auto;
+  padding: 22px 0 44px;
+}
+
+.topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 14px;
+}
+
+h1 {
+  margin: 0 0 6px;
+  font-size: 26px;
+  letter-spacing: 0;
+}
+
+.feed-link {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.mode-switch {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.mode-switch a {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 6px 10px;
+  text-decoration: none;
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.mode-switch a:hover,
+.mode-switch a.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: #eef4ff;
+}
+
+.actions,
+.card-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+input,
+select,
+textarea {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  font: inherit;
+  padding: 8px 10px;
+  width: 100%;
+}
+
+textarea {
+  resize: vertical;
+}
+
+button,
+.button-link {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+  padding: 9px 13px;
+  font-size: 14px;
+  line-height: 1.2;
+  text-decoration: none;
+  cursor: pointer;
+  min-height: 38px;
+}
+
+.primary-link {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.primary-link:hover {
+  background: var(--accent-dark);
+  border-color: var(--accent-dark);
+  color: #fff;
+}
+
+button:hover,
+.button-link:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.danger-button {
+  border-color: #f1b8b8;
+  color: var(--danger);
+}
+
+.danger-button:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.actions button:first-child {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.actions button:first-child:hover {
+  background: var(--accent-dark);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.stats div {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 10px;
+}
+
+.stats span {
+  display: block;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.stats label {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.notice {
+  margin: 0 0 16px;
+  padding: 12px 14px;
+  background: var(--ok-bg);
+  border: 1px solid #badfcc;
+  border-radius: 8px;
+}
+
+.notice.error {
+  color: var(--danger);
+  background: var(--error-bg);
+  border-color: #f2c4c4;
+}
+
+.filters {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(240px, 1.4fr) minmax(170px, 0.8fr) minmax(130px, 0.7fr) auto auto auto;
+  gap: 10px;
+  align-items: end;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 12px;
+  padding: 10px;
+}
+
+.filters label,
+.article-note label {
+  display: grid;
+  gap: 5px;
+}
+
+.filters label span,
+.article-note label span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.check-filter {
+  align-items: center;
+  display: flex !important;
+  gap: 7px !important;
+  min-height: 38px;
+}
+
+.check-filter input {
+  width: auto;
+}
+
+.filter-status {
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -4px 0 12px;
+  font-size: 13px;
+}
+
+.filter-status span {
+  background: #edf2f7;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: #405366;
+  padding: 2px 8px;
+}
+
+.smart-terms {
+  align-items: center;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: -4px 0 12px;
+  padding: 9px 10px;
+  font-size: 13px;
+}
+
+.smart-terms strong {
+  color: #263746;
+}
+
+.smart-terms span {
+  background: #eef4ff;
+  border: 1px solid #ccdbf7;
+  border-radius: 999px;
+  color: #244c88;
+  padding: 2px 8px;
+}
+
+.smart-terms em {
+  color: var(--muted);
+  font-style: normal;
+}
+
+.articles {
+  display: grid;
+  gap: 10px;
+}
+
+.card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 138px;
+  gap: 14px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-left: 5px solid #8fa3bd;
+  border-radius: 8px;
+  padding: 14px 14px 14px 16px;
+}
+
+.source-nature,
+.source-nature-genetics,
+.source-nature-communications,
+.source-nature-plants,
+.source-nature-machine-intelligence,
+.source-nature-computational-science,
+.source-nature-reviews-genetics,
+.source-nature-methods,
+.source-nature-biotechnology {
+  border-left-color: #2b7a4b;
+}
+
+.source-cell-sciencedirect-feed,
+.source-molecular-plant-sciencedirect-feed,
+.source-plant-communications-sciencedirect-feed,
+.source-developmental-cell-sciencedirect-feed,
+.source-current-biology-sciencedirect-feed,
+.source-cell-reports-sciencedirect-feed,
+.source-trends-in-plant-science-sciencedirect-feed,
+.source-trends-in-genetics-sciencedirect-feed,
+.source-cell-genomics-sciencedirect-feed {
+  border-left-color: #b43b3b;
+}
+
+.source-advanced-science-wiley,
+.source-new-phytologist-wiley,
+.source-plant-biotechnology-journal-wiley,
+.source-the-plant-journal-wiley {
+  border-left-color: #2166a5;
+}
+
+.source-arxiv-cscl,
+.source-arxiv-cslg,
+.source-arxiv-csai,
+.source-arxiv-q-biobm {
+  border-left-color: #8b1e2d;
+}
+
+.source-biorxiv-bioinformatics,
+.source-biorxiv-genomics,
+.source-biorxiv-systems_biology,
+.source-biorxiv-molecular_biology,
+.source-biorxiv-cell_biology {
+  border-left-color: #c87422;
+}
+
+.source-pnas-current {
+  border-left-color: #11827c;
+}
+
+.source-genome-biology-springer {
+  border-left-color: #6f5aa8;
+}
+
+.article-kicker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.article-kicker span {
+  border-right: 1px solid var(--line);
+  padding-right: 6px;
+}
+
+.article-kicker span:last-child {
+  border-right: 0;
+  padding-right: 0;
+}
+
+.source-name {
+  color: #263746;
+  font-weight: 700;
+}
+
+.title-cn {
+  margin: 0 0 7px;
+  font-size: 18px;
+  line-height: 1.35;
+  letter-spacing: 0;
+}
+
+.title-original {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.meta span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 3px 8px;
+}
+
+.favorite-badge {
+  border-color: #e0b200 !important;
+  color: #7a5a00;
+  background: #fff7d6;
+}
+
+.zotero-badge {
+  border-color: #9dc4ef !important;
+  color: #18599b;
+  background: #eef7ff;
+}
+
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: -2px 0 8px;
+}
+
+.tag-row span {
+  background: #eef4ff;
+  border: 1px solid #ccdbf7;
+  border-radius: 999px;
+  color: #244c88;
+  font-size: 12px;
+  padding: 2px 8px;
+}
+
+.summary {
+  background: #fafbfc;
+  border: 1px solid #e6ebf1;
+  border-radius: 8px;
+  padding: 10px 11px;
+  font-size: 14px;
+}
+
+.summary p,
+.summary ol {
+  margin: 0;
+}
+
+.summary ol {
+  padding-left: 22px;
+}
+
+.original-summary {
+  white-space: pre-wrap;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.article-note {
+  margin-top: 10px;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+
+.article-note summary {
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 13px;
+  width: fit-content;
+}
+
+.note-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 0.45fr);
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.note-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.card-actions {
+  align-content: flex-start;
+  display: grid;
+  gap: 8px;
+  grid-auto-rows: min-content;
+  min-width: 0;
+}
+
+.empty {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 28px;
+}
+
+.empty h2 {
+  margin: 0 0 8px;
+}
+
+.empty p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.source-table {
+  display: grid;
+  gap: 8px;
+}
+
+.source-row {
+  display: grid;
+  grid-template-columns: 70px minmax(220px, 1.4fr) 100px 70px minmax(150px, 1fr) minmax(150px, 1fr) 70px minmax(180px, 1fr);
+  gap: 10px;
+  align-items: start;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  font-size: 13px;
+}
+
+.source-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.source-row strong {
+  display: block;
+  font-size: 14px;
+}
+
+.source-head {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.source-ok {
+  border-left: 4px solid #239a58;
+}
+
+.source-empty {
+  border-left: 4px solid #d89b00;
+}
+
+.source-failed {
+  border-left: 4px solid var(--danger);
+}
+
+@media (max-width: 760px) {
+  .topbar,
+  .card {
+    grid-template-columns: 1fr;
+    display: grid;
+  }
+
+  .stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .filters,
+  .note-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .card-actions {
+    justify-content: flex-start;
+    min-width: 0;
+  }
+
+  .source-row {
+    grid-template-columns: 1fr;
+  }
+
+  .source-head {
+    display: none;
+  }
+}

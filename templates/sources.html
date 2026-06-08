@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>源健康</title>
+    <link rel="stylesheet" href="/static/style.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <h1>源健康</h1>
+          <p class="feed-link">记录每个来源最近一次抓取成功或失败的状态。</p>
+          <nav class="mode-switch" aria-label="导航">
+            <a href="/?mode=original">原文模式</a>
+            <a href="/?mode=ds">DS 模式</a>
+            <a class="active" href="/sources">源健康</a>
+          </nav>
+        </div>
+      </header>
+
+      {% if sources %}
+      <section class="source-table" aria-label="源健康列表">
+        <div class="source-row source-head">
+          <span>状态</span>
+          <span>源名称</span>
+          <span>类型</span>
+          <span>HTTP</span>
+          <span>上次成功</span>
+          <span>上次失败</span>
+          <span>条数</span>
+          <span>错误</span>
+        </div>
+        {% for source in sources %}
+          {% set failed_latest = source.last_failure_at and (not source.last_success_at or source.last_failure_at > source.last_success_at) %}
+          {% if failed_latest %}
+            {% set state = "failed" %}
+          {% elif source.last_item_count == 0 %}
+            {% set state = "empty" %}
+          {% else %}
+            {% set state = "ok" %}
+          {% endif %}
+          <div class="source-row source-{{ state }}">
+            <span>
+              {% if state == "failed" %}失败{% elif state == "empty" %}空{% else %}正常{% endif %}
+            </span>
+            <span>
+              <strong>{{ source.source_name }}</strong>
+              {% if source.url %}
+              <a href="{{ source.url }}" target="_blank" rel="noreferrer">打开</a>
+              {% endif %}
+            </span>
+            <span>{{ source.source_type }}</span>
+            <span>{{ source.last_http_status or "" }}</span>
+            <span>{{ source.last_success_at or "" }}</span>
+            <span>{{ source.last_failure_at or "" }}</span>
+            <span>{{ source.last_item_count }}</span>
+            <span>{{ source.last_error or "" }}</span>
+          </div>
+        {% endfor %}
+      </section>
+      {% else %}
+      <section class="empty">
+        <h2>还没有源健康记录</h2>
+        <p>先在首页点击“抓取新文章”，这里会显示每个源的最近状态。</p>
+      </section>
+      {% endif %}
+    </main>
+  </body>
+</html>

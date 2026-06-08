@@ -1,0 +1,15 @@
+services:
+  freshrss:
+    image: freshrss/freshrss:latest
+    container_name: rss-ai-summary-share-freshrss
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      TZ: Asia/Shanghai
+      CRON_MIN: disabled
+    volumes:
+      - ./volumes/freshrss/data:/var/www/FreshRSS/data
+      - ./volumes/freshrss/extensions:/var/www/FreshRSS/extensions
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

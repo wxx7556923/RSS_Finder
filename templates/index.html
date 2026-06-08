@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ app_title }}</title>
+    <link rel="stylesheet" href="/static/style.css">
+  </head>
+  <body data-mode="{{ mode }}">
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <h1>{{ app_title }}</h1>
+          <nav class="mode-switch" aria-label="模式">
+            <a class="{% if mode == 'ds' %}active{% endif %}" href="/?mode=ds">DS 模式</a>
+            <a class="{% if mode == 'original' %}active{% endif %}" href="/?mode=original">原文模式</a>
+            <a href="/sources">源健康</a>
+          </nav>
+        </div>
+        <div class="actions">
+          <button data-action="sync">一键同步</button>
+          <button data-action="fetch">抓取新文章</button>
+          <button data-action="apply-rules">应用规则</button>
+          {% if mode == "ds" %}
+          <button data-action="translate">批量翻译标题</button>
+          {% endif %}
+          <button data-action="build-feed">重新生成 RSS</button>
+        </div>
+      </header>
+
+      <section class="stats" aria-label="统计">
+        <div><span>{{ stats.total }}</span><label>本地累计文章</label></div>
+        <div><span>{{ stats.unread }}</span><label>未读</label></div>
+        <div><span>{{ stats.opened }}</span><label>已打开</label></div>
+        <div><span>{{ stats.read }}</span><label>已读</label></div>
+        <div><span>{{ stats.to_read }}</span><label>待精读</label></div>
+        <div><span>{{ stats.favorite }}</span><label>收藏</label></div>
+        <div><span>{{ stats.zotero_saved }}</span><label>已入 Zotero</label></div>
+        <div><span>{{ stats.skipped }}</span><label>已跳过</label></div>
+        <div><span>{{ stats.filtered }}</span><label>已过滤</label></div>
+        {% if mode == "ds" %}
+        <div><span>{{ stats.translated }}</span><label>已翻译标题</label></div>
+        <div><span>{{ stats.summarized }}</span><label>DS 摘要</label></div>
+        <div><span>{{ stats.failed }}</span><label>失败数</label></div>
+        {% endif %}
+      </section>
+
+      <div id="notice" class="notice" hidden></div>
+
+      <form class="filters" method="get" action="/">
+        <input type="hidden" name="mode" value="{{ mode }}">
+        <label>
+          <span>检索</span>
+          <input name="q" value="{{ query }}" placeholder="标题、摘要、笔记、标签">
+        </label>
+        <label>
+          <span>智能检索</span>
+          <input name="smart_q" value="{{ smart_q }}" placeholder="例如：油菜单细胞和抗逆相关进展">
+        </label>
+        <label>
+          <span>来源</span>
+          <select name="source">
+            <option value="">全部来源</option>
+            {% for item in sources %}
+              <option value="{{ item.name }}" {% if source == item.name %}selected{% endif %}>{{ item.label }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          <span>状态</span>
+          <select name="read_status">
+            <option value="">全部状态</option>
+            <option value="unread" {% if read_status == "unread" %}selected{% endif %}>未读</option>
+            <option value="opened" {% if read_status == "opened" %}selected{% endif %}>已打开</option>
+            <option value="to_read" {% if read_status == "to_read" %}selected{% endif %}>待精读</option>
+            <option value="read" {% if read_status == "read" %}selected{% endif %}>已读</option>
+            <option value="skipped" {% if read_status == "skipped" %}selected{% endif %}>跳过</option>
+            <option value="filtered" {% if read_status == "filtered" %}selected{% endif %}>已过滤</option>
+          </select>
+        </label>
+        <label class="check-filter">
+          <input type="checkbox" name="favorite" value="true" {% if favorite %}checked{% endif %}>
+          <span>只看收藏</span>
+        </label>
+        <button type="submit">筛选</button>
+        <a class="button-link" href="/?mode={{ mode }}">清空</a>
+      </form>
+      <div class="filter-status">
+        当前显示 {{ articles_count }} 篇
+        {% if query %}<span>检索：{{ query }}</span>{% endif %}
+        {% if smart_q %}<span>智能检索：{{ smart_q }}</span>{% endif %}
+        {% if source %}<span>来源：{{ source }}</span>{% endif %}
+        {% if read_status %}<span>状态：{{ read_status }}</span>{% endif %}
+        {% if favorite %}<span>只看收藏</span>{% endif %}
+      </div>
+      {% if smart_terms %}
+      <div class="smart-terms">
+        <strong>拆解关键词</strong>
+        {% for term in smart_terms %}
+          <span>{{ term }}</span>
+        {% endfor %}
+        {% if smart_reason %}<em>{{ smart_reason }}</em>{% endif %}
+        {% if smart_error %}<em>{{ smart_error }}</em>{% endif %}
+      </div>
+      {% endif %}
+
+      <section class="articles">
+        {% if articles %}
+          {% for article in articles %}
+          <article class="card source-{{ article.source_name|lower|replace(' ', '-')|replace('(', '')|replace(')', '')|replace('/', '-')|replace('.', '') }}" id="article-{{ article.article_id }}" data-article-id="{{ article.article_id }}" data-favorite="{{ article.favorite }}">
+            <div class="card-main">
+              {% if mode == "original" %}
+              <div class="article-kicker">
+                <span class="source-name">{{ article.source_name }}</span>
+                <span>{{ article.published_at or article.fetched_at }}</span>
+                <span class="read-status">状态：{{ article.read_status }}</span>
+              </div>
+              <h2 class="title-cn">
+                {{ article.original_title }}
+              </h2>
+              <div class="meta">
+                {% if article.favorite %}
+                <span class="favorite-badge">收藏</span>
+                {% endif %}
+                {% if article.zotero_status == "saved" %}
+                <span class="zotero-badge">已入 Zotero</span>
+                {% endif %}
+              </div>
+              {% if article.system_tags %}
+              <div class="tag-row">
+                {% for tag in article.system_tags.split(",") %}
+                  {% if tag.strip() %}
+                  <span>{{ tag.strip() }}</span>
+                  {% endif %}
+                {% endfor %}
+              </div>
+              {% endif %}
+              <div class="summary original-summary">
+                {% if article.original_description %}
+                  <p>{{ article.original_description }}</p>
+                {% else %}
+                  <p>RSS 未提供摘要。</p>
+                {% endif %}
+              </div>
+              {% else %}
+              <div class="article-kicker">
+                <span class="source-name">{{ article.source_name }}</span>
+                <span>{{ article.published_at or article.fetched_at }}</span>
+                <span>标题：{{ article.title_status }}</span>
+                <span class="summary-status">摘要：{{ article.summary_status }}</span>
+                <span class="read-status">状态：{{ article.read_status }}</span>
+              </div>
+              <h2 class="title-cn">
+                {{ article.translated_title or article.original_title }}
+              </h2>
+              <p class="title-original">{{ article.original_title }}</p>
+              <div class="meta">
+                {% if article.favorite %}
+                <span class="favorite-badge">收藏</span>
+                {% endif %}
+                {% if article.zotero_status == "saved" %}
+                <span class="zotero-badge">已入 Zotero</span>
+                {% endif %}
+              </div>
+              {% if article.system_tags %}
+              <div class="tag-row">
+                {% for tag in article.system_tags.split(",") %}
+                  {% if tag.strip() %}
+                  <span>{{ tag.strip() }}</span>
+                  {% endif %}
+                {% endfor %}
+              </div>
+              {% endif %}
+              <div class="summary">
+                {% if article.summary_status == "summarized" %}
+                  <ol>
+                    <li>{{ article.summary_line_1 }}</li>
+                    <li>{{ article.summary_line_2 }}</li>
+                    <li>{{ article.summary_line_3 }}</li>
+                  </ol>
+                {% elif article.summary_status == "skipped" %}
+                  <p>已跳过。</p>
+                {% elif article.summary_status == "failed" %}
+                  <p>摘要生成失败，可再次点击“生成摘要”。</p>
+                {% else %}
+                  <p>未生成摘要</p>
+                {% endif %}
+              </div>
+              {% endif %}
+              <details class="article-note">
+                <summary>笔记和管理</summary>
+                <div class="note-grid">
+                  <label>
+                    <span>笔记</span>
+                    <textarea data-field="user_note" rows="3" placeholder="读后判断、后续用途、关键图表等">{{ article.user_note }}</textarea>
+                  </label>
+                  <label>
+                    <span>标签</span>
+                    <input data-field="tags" value="{{ article.tags }}" placeholder="AI, genomics, method">
+                  </label>
+                </div>
+                <div class="note-actions">
+                  <button data-action="save-meta" data-id="{{ article.article_id }}">保存笔记</button>
+                  <button data-action="set-status" data-status="skipped" data-id="{{ article.article_id }}">跳过</button>
+                  <button data-action="toggle-zotero" data-id="{{ article.article_id }}" data-zotero-status="{{ article.zotero_status }}">
+                    {% if article.zotero_status == "saved" %}取消 Zotero{% else %}已入 Zotero{% endif %}
+                  </button>
+                  <button class="danger-button" data-action="delete-article" data-id="{{ article.article_id }}">删除</button>
+                  <a class="button-link" href="/api/articles/{{ article.article_id }}/ris">导出 RIS</a>
+                </div>
+              </details>
+            </div>
+            <div class="card-actions">
+              {% if article.link %}
+              <a class="button-link primary-link" href="/api/articles/{{ article.article_id }}/open" target="_blank" rel="noreferrer" data-open-original data-id="{{ article.article_id }}">打开原文</a>
+              {% else %}
+              <button disabled>打开原文</button>
+              {% endif %}
+              <button data-action="toggle-favorite" data-id="{{ article.article_id }}">
+                {% if article.favorite %}取消收藏{% else %}收藏{% endif %}
+              </button>
+              <button data-action="set-status" data-status="to_read" data-id="{{ article.article_id }}">待精读</button>
+              <button data-action="set-status" data-status="read" data-id="{{ article.article_id }}">标为已读</button>
+              {% if mode == "ds" %}
+              <button data-action="summarize" data-id="{{ article.article_id }}">生成摘要</button>
+              <button data-action="skip" data-id="{{ article.article_id }}">跳过</button>
+              {% endif %}
+            </div>
+          </article>
+          {% endfor %}
+        {% else %}
+          <section class="empty">
+            <h2>还没有文章</h2>
+            <p>点击“抓取新文章”开始导入 RSS。</p>
+          </section>
+        {% endif %}
+      </section>
+    </main>
+    <script src="/static/app.js"></script>
+  </body>
+</html>
