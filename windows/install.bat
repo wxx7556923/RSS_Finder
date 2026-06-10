@@ -15,14 +15,20 @@ if errorlevel 1 (
   exit /b 1
 )
 
-wsl.exe -l -q | findstr /R "." >nul 2>nul
-if errorlevel 1 (
+set "DISTRO="
+for /f "usebackq delims=" %%D in (`powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$names = (wsl.exe --list --quiet 2^>$null) -replace [char]0,''; $match = $names -split '[\r\n]+' ^| Where-Object { $_ -match '^Ubuntu' } ^| Select-Object -First 1; if($match){ $match.Trim() }"`) do set "DISTRO=%%D"
+if not defined DISTRO (
   echo No installed Ubuntu distribution was detected.
+  echo.
+  echo Current WSL distributions:
+  wsl.exe --list --verbose
+  echo.
   call :install_wsl
   exit /b 1
 )
+echo Using WSL distribution: %DISTRO%
 
-wsl.exe bash -lc "echo WSL_READY" >nul 2>nul
+wsl.exe -d "%DISTRO%" -e sh -lc "echo WSL_READY" >nul 2>nul
 if errorlevel 1 (
   echo.
   echo WSL/Ubuntu is installed, but Ubuntu has not finished first-time setup.
@@ -33,13 +39,13 @@ if errorlevel 1 (
   echo.
   echo After Ubuntu setup is done, close Ubuntu and run Windows-Install.bat again.
   echo.
-  start "" wsl.exe
+  start "" wsl.exe -d "%DISTRO%"
   pause
   exit /b 1
 )
 
 echo Checking WSL Ubuntu...
-wsl.exe bash -lc "echo WSL_READY" >nul 2>nul
+wsl.exe -d "%DISTRO%" -e sh -lc "echo WSL_READY" >nul 2>nul
 if errorlevel 1 (
   echo.
   echo Ubuntu is not ready yet, or Windows needs a restart.
@@ -49,7 +55,7 @@ if errorlevel 1 (
 )
 
 echo Installing Paper Radar inside WSL Ubuntu...
-wsl.exe bash -lc "cd \"$(wslpath '%ROOT%')\" && bash install.sh && .venv/bin/python tools/configure_sources.py && .venv/bin/python tools/configure_env.py"
+wsl.exe -d "%DISTRO%" -e bash -lc "cd \"$(wslpath '%ROOT%')\" && bash install.sh && .venv/bin/python tools/configure_sources.py && .venv/bin/python tools/configure_env.py"
 if errorlevel 1 (
   echo.
   echo Install failed. Check the message above.

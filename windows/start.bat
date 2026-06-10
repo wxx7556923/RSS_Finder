@@ -10,7 +10,15 @@ if errorlevel 1 (
   exit /b 1
 )
 
-wsl.exe bash -lc "echo WSL_READY" >nul 2>nul
+set "DISTRO="
+for /f "usebackq delims=" %%D in (`powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$names = (wsl.exe --list --quiet 2^>$null) -replace [char]0,''; $match = $names -split '[\r\n]+' ^| Where-Object { $_ -match '^Ubuntu' } ^| Select-Object -First 1; if($match){ $match.Trim() }"`) do set "DISTRO=%%D"
+if not defined DISTRO (
+  echo No installed Ubuntu distribution was detected. Run Windows-Install.bat first.
+  pause
+  exit /b 1
+)
+
+wsl.exe -d "%DISTRO%" -e sh -lc "echo WSL_READY" >nul 2>nul
 if errorlevel 1 (
   echo Ubuntu is not initialized yet, or Windows needs a restart.
   echo Restart Windows, open Ubuntu once, create a username and password, then run this again.
@@ -18,7 +26,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-wsl.exe bash -lc "cd \"$(wslpath '%ROOT%')\" && PAPER_RADAR_OPEN=0 bash paper-radar start"
+wsl.exe -d "%DISTRO%" -e bash -lc "cd \"$(wslpath '%ROOT%')\" && PAPER_RADAR_OPEN=0 bash paper-radar start"
 if errorlevel 1 (
   echo.
   echo Startup failed. Run Windows-Logs.bat to inspect logs.
