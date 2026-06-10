@@ -129,7 +129,7 @@ bash install.sh
 启动 Web 控制台：
 
 ```bash
-bash start.sh
+./paper-radar
 ```
 
 打开：
@@ -138,16 +138,39 @@ bash start.sh
 http://localhost:8090
 ```
 
+如果想像普通系统命令一样使用，可以装一次本机快捷命令：
+
+```bash
+bash install-command.sh
+```
+
+之后在任意位置运行：
+
+```bash
+pradar
+```
+
+常用控制命令：
+
+```bash
+pradar status
+pradar stop
+pradar restart
+pradar logs
+```
+
 ## 日常使用
 
 推荐主流程：
 
-1. 点击 `一键同步`
-2. 浏览文章列表
-3. 对感兴趣的文章点击 `打开原文`
-4. 对暂时要保留的文章点击 `待精读`
-5. 对看完的文章点击 `标为已读`
-6. 需要时点击 `重新生成 RSS`
+1. 在终端运行 `pradar` 或 `./paper-radar`
+2. 打开 `http://localhost:8090`
+3. 点击 `一键同步`
+4. 浏览文章列表
+5. 对感兴趣的文章点击 `打开原文`
+6. 对暂时要保留的文章点击 `待精读`
+7. 对看完的文章点击 `标为已读`
+8. 需要时点击 `重新生成 RSS`
 
 备用按钮：
 

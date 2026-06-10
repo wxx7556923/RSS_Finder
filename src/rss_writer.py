@@ -73,7 +73,7 @@ def build_feed(path: Path = OUTPUT_XML) -> dict[str, Any]:
     storage.ensure_dirs()
 
     config = settings.output_rss_config()
-    channel_title = str(config.get("title") or "Paper Radar Feed")
+    channel_title = str(config.get("title") or "AI 中文摘要")
     channel_link = str(config.get("link") or "http://localhost:8090/feed.xml")
     channel_description = str(config.get("description") or "自动翻译标题并保留 RSS 摘要的 Feed")
 
@@ -108,7 +108,7 @@ def build_original_feed(path: Path = OUTPUT_ORIGINAL_XML) -> dict[str, Any]:
     storage.ensure_dirs()
 
     config = settings.output_rss_config()
-    channel_title = str(config.get("original_title") or "Paper Radar Original Feed")
+    channel_title = str(config.get("original_title") or "原文 RSS")
     channel_link = str(config.get("link") or "http://localhost:8090/feed.xml").replace("feed.xml", "feed-original.xml")
     channel_description = str(config.get("original_description") or "不调用 DeepSeek，保留原始标题和 RSS 原始摘要的 Feed")
 

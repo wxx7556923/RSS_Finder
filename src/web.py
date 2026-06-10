@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, RedirectResponse
@@ -19,6 +20,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title=settings.app_title())
 app.mount("/static", StaticFiles(directory=storage.BASE_DIR / "static"), name="static")
 templates = Jinja2Templates(directory=storage.BASE_DIR / "templates")
+templates.env.filters["urlquote"] = lambda value: quote(str(value), safe="")
 
 
 def _fallback_terms(query: str) -> list[str]:
@@ -46,6 +48,23 @@ def _source_options() -> list[dict[str, str]]:
     return [{"name": name, "label": _source_label(name)} for name in storage.list_source_names()]
 
 
+READING_LEVELS = {
+    "none": "未分类",
+    "skim": "摘要够了",
+    "readable": "可读",
+    "deep_read": "精读",
+}
+
+
+READ_STATUS_LABELS = {
+    "unread": "未读",
+    "opened": "已打开",
+    "read": "已读",
+    "to_read": "待读",
+    "filtered": "已过滤",
+}
+
+
 @app.get("/")
 async def index(
     request: Request,
@@ -54,6 +73,7 @@ async def index(
     smart_q: str = Query(default=""),
     source: str = Query(default=""),
     read_status: str = Query(default=""),
+    reading_level: str = Query(default=""),
     favorite: bool = Query(default=False),
     author: str = Query(default=""),
     doi: str = Query(default=""),
@@ -66,6 +86,9 @@ async def index(
     effective_read_status = read_status.strip()
     if not effective_read_status:
         effective_read_status = None
+    effective_reading_level = reading_level.strip()
+    if not effective_reading_level:
+        effective_reading_level = None
     smart_terms: list[str] = []
     smart_reason = ""
     smart_error = ""
@@ -84,6 +107,7 @@ async def index(
         smart_terms=smart_terms,
         source=source.strip() or None,
         read_status=effective_read_status,
+        reading_level=effective_reading_level,
         favorite=True if favorite else None,
         author=author.strip() or None,
         doi=doi.strip() or None,
@@ -110,6 +134,7 @@ async def index(
             "smart_error": smart_error,
             "source": source,
             "read_status": read_status,
+            "reading_level": reading_level,
             "favorite": favorite,
             "author": author,
             "doi": doi,
@@ -117,6 +142,9 @@ async def index(
             "date_from": date_from,
             "date_to": date_to,
             "sources": _source_options(),
+            "tag_suggestions": storage.list_tags(limit=80),
+            "reading_levels": READING_LEVELS,
+            "read_status_labels": READ_STATUS_LABELS,
             "feed_url": "/feed-original.xml" if view_mode == "original" else "/feed.xml",
         },
     )
@@ -208,10 +236,14 @@ async def api_article_meta(article_id: int, request: Request):
     except Exception:
         payload = {}
     allowed_statuses = {"unread", "opened", "read", "to_read", "filtered"}
+    allowed_reading_levels = set(READING_LEVELS)
     allowed_zotero_statuses = {"not_saved", "saved"}
     read_status = payload.get("read_status")
     if read_status is not None and read_status not in allowed_statuses:
         raise HTTPException(status_code=400, detail="无效阅读状态")
+    reading_level = payload.get("reading_level")
+    if reading_level is not None and reading_level not in allowed_reading_levels:
+        raise HTTPException(status_code=400, detail="无效可读性等级")
     zotero_status = payload.get("zotero_status")
     if zotero_status is not None and zotero_status not in allowed_zotero_statuses:
         raise HTTPException(status_code=400, detail="无效 Zotero 状态")
@@ -219,6 +251,7 @@ async def api_article_meta(article_id: int, request: Request):
         row = storage.update_article_meta(
             article_id,
             read_status=read_status,
+            reading_level=reading_level,
             favorite=payload.get("favorite") if "favorite" in payload else None,
             user_note=payload.get("user_note") if "user_note" in payload else None,
             tags=payload.get("tags") if "tags" in payload else None,
@@ -228,6 +261,7 @@ async def api_article_meta(article_id: int, request: Request):
             {
                 "article_id": article_id,
                 "read_status": row["read_status"],
+                "reading_level": row["reading_level"],
                 "favorite": bool(row["favorite"]),
                 "user_note": row["user_note"],
                 "tags": row["tags"],
@@ -267,6 +301,12 @@ async def api_articles_batch(request: Request):
     if action in {"read", "to_read", "unread", "filtered"}:
         count = storage.batch_update_status(ids, action)
         return JSONResponse({"action": action, "count": count})
+    if action == "reading_level":
+        reading_level = str(payload.get("reading_level") or "").strip()
+        if reading_level not in READING_LEVELS:
+            raise HTTPException(status_code=400, detail="无效可读性等级")
+        count = storage.batch_update_reading_level(ids, reading_level)
+        return JSONResponse({"action": action, "reading_level": reading_level, "count": count})
     if action == "delete":
         count = storage.batch_delete_articles(ids)
         rss_writer.build_feed()
@@ -382,9 +422,64 @@ async def sources(request: Request):
         {
             "request": request,
             "sources": storage.list_source_health(),
-            "app_title": settings.app_title(),
         },
     )
+
+
+@app.get("/database")
+async def database(request: Request, show_ai: bool = Query(default=False)):
+    return templates.TemplateResponse(
+        "database.html",
+        {
+            "request": request,
+            "overview": storage.get_database_overview(),
+            "app_title": settings.app_title(),
+            "show_ai": show_ai,
+            "reading_levels": READING_LEVELS,
+            "read_status_labels": READ_STATUS_LABELS,
+        },
+    )
+
+
+@app.get("/tags")
+async def tags(request: Request):
+    return templates.TemplateResponse(
+        "tags.html",
+        {
+            "request": request,
+            "tags": storage.list_tags(),
+            "app_title": settings.app_title(),
+            "reading_levels": READING_LEVELS,
+            "read_status_labels": READ_STATUS_LABELS,
+        },
+    )
+
+
+@app.get("/tags/{tag:path}")
+async def tag_detail(request: Request, tag: str):
+    clean_tag = tag.strip()
+    summary = storage.get_tag_summary(clean_tag)
+    if summary is None:
+        raise HTTPException(status_code=404, detail="标签不存在")
+    articles = storage.list_articles_by_tag(clean_tag)
+    return templates.TemplateResponse(
+        "tag_detail.html",
+        {
+            "request": request,
+            "tag": clean_tag,
+            "tag_url": quote(clean_tag, safe=""),
+            "summary": summary,
+            "articles": articles,
+            "app_title": settings.app_title(),
+            "reading_levels": READING_LEVELS,
+            "read_status_labels": READ_STATUS_LABELS,
+        },
+    )
+
+
+@app.get("/api/tags")
+async def api_tags():
+    return JSONResponse({"tags": storage.list_tags()})
 
 
 @app.get("/digest")
@@ -392,7 +487,14 @@ async def digest(request: Request, days: int = Query(default=7, ge=1, le=90)):
     articles = storage.recent_digest(days=days, limit=300)
     return templates.TemplateResponse(
         "digest.html",
-        {"request": request, "articles": articles, "days": days, "app_title": settings.app_title()},
+        {
+            "request": request,
+            "articles": articles,
+            "days": days,
+            "app_title": settings.app_title(),
+            "reading_levels": READING_LEVELS,
+            "read_status_labels": READ_STATUS_LABELS,
+        },
     )
 
 
@@ -411,7 +513,7 @@ async def api_export_articles_json():
     return PlainTextResponse(
         storage.export_articles_json(),
         media_type="application/json; charset=utf-8",
-        headers={"Content-Disposition": 'attachment; filename="paper-radar-articles.json"'},
+        headers={"Content-Disposition": 'attachment; filename="rss-finder-articles.json"'},
     )
 
 

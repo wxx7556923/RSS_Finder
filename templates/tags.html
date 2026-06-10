@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>标签</title>
+    <link rel="stylesheet" href="/static/style.css?v=20260610-knowledge-workbench">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <h1>标签</h1>
+          <p class="feed-link">按主题查看文章、批注、可读性和精读候选。</p>
+          <nav class="mode-switch" aria-label="导航">
+            <a href="/?mode=original">原文模式</a>
+            <a href="/?mode=ds">DS 模式</a>
+            <a href="/sources">源健康</a>
+            <a href="/database">数据库</a>
+            <a class="active" href="/tags">标签</a>
+            <a href="/digest">周报</a>
+          </nav>
+        </div>
+      </header>
+
+      {% if tags %}
+      <section class="tag-list" aria-label="标签列表">
+        {% for item in tags %}
+        <a class="tag-card" href="/tags/{{ item.tag|urlquote }}">
+          <div>
+            <h2>{{ item.tag }}</h2>
+            <p>{{ item.total }} 篇 · 系统 {{ item.system_count }} · 手动 {{ item.user_count }}</p>
+          </div>
+          <div class="tag-card-stats">
+            <span>未读 {{ item.unread }}</span>
+            <span>可读 {{ item.readable }}</span>
+            <span>精读 {{ item.deep_read }}</span>
+            <span>批注 {{ item.noted }}</span>
+            <span>收藏 {{ item.favorite }}</span>
+          </div>
+        </a>
+        {% endfor %}
+      </section>
+      {% else %}
+      <section class="empty">
+        <h2>还没有标签</h2>
+        <p>同步文章并应用规则后，这里会显示系统标签；也可以在文章卡片里手动添加标签。</p>
+      </section>
+      {% endif %}
+    </main>
+  </body>
+</html>

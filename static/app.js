@@ -41,7 +41,7 @@ async function postJson(url, payload = null) {
 
 function collectMeta(card) {
   const payload = {};
-  for (const field of ["user_note", "tags"]) {
+  for (const field of ["user_note", "tags", "reading_level"]) {
     const element = card.querySelector(`[data-field="${field}"]`);
     if (element) payload[field] = element.value;
   }
@@ -49,8 +49,26 @@ function collectMeta(card) {
 }
 
 function updateReadStatus(card, value) {
+  const labels = {
+    unread: "未读",
+    opened: "已打开",
+    read: "已读",
+    to_read: "待读",
+    filtered: "已过滤",
+  };
   const status = card.querySelector(".read-status");
-  if (status) status.textContent = `状态：${value}`;
+  if (status) status.textContent = `状态：${labels[value] || value}`;
+}
+
+function updateReadingLevel(card, value) {
+  const labels = {
+    none: "未分类",
+    skim: "摘要够了",
+    readable: "可读",
+    deep_read: "精读",
+  };
+  const element = card.querySelector(".reading-level");
+  if (element) element.textContent = `可读性：${labels[value] || value}`;
 }
 
 function updateFavorite(card, favorite) {
@@ -158,6 +176,7 @@ document.addEventListener("click", async (event) => {
       setLoading(target, true, "保存中...");
       const data = await postJson(`/api/articles/${id}/meta`, collectMeta(card));
       updateReadStatus(card, data.read_status);
+      updateReadingLevel(card, data.reading_level);
       updateFavorite(card, data.favorite);
       showNotice("笔记已保存。");
     }
@@ -214,6 +233,18 @@ document.addEventListener("click", async (event) => {
       setLoading(target, true, "批量保存...");
       const data = await postJson("/api/articles/batch", { article_ids: ids, action: target.dataset.status });
       showNotice(`批量更新完成：${data.count} 篇。`);
+      window.location.reload();
+    }
+
+    if (action === "batch-reading-level") {
+      const ids = selectedArticleIds();
+      setLoading(target, true, "批量保存...");
+      const data = await postJson("/api/articles/batch", {
+        article_ids: ids,
+        action: "reading_level",
+        reading_level: target.dataset.readingLevel,
+      });
+      showNotice(`批量可读性更新完成：${data.count} 篇。`);
       window.location.reload();
     }
 

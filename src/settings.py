@@ -16,7 +16,7 @@ APP_CONFIG_PATH = storage.BASE_DIR / "config" / "app.yml"
 
 DEFAULT_CONFIG: dict[str, Any] = {
     "app": {
-        "title": "Paper Radar",
+        "title": "前沿期刊进展",
         "default_mode": "original",
         "page_limit": 2000,
     },
@@ -41,10 +41,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "collection_key": "",
     },
     "output_rss": {
-        "title": "Paper Radar Feed",
+        "title": "AI 中文摘要",
         "link": "http://localhost:8090/feed.xml",
         "description": "自动翻译标题并保留 RSS 摘要的 Feed",
-        "original_title": "Paper Radar Original Feed",
+        "original_title": "原文 RSS",
         "original_description": "不调用 DeepSeek，保留原始标题和 RSS 原始摘要的 Feed",
     },
     "feeds": [],

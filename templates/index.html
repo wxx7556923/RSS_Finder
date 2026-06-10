@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ app_title }}</title>
-    <link rel="stylesheet" href="/static/style.css?v=20260608-db-workbench">
+    <link rel="stylesheet" href="/static/style.css?v=20260610-knowledge-workbench">
   </head>
   <body data-mode="{{ mode }}">
     <main class="shell">
@@ -15,6 +15,8 @@
             <a class="{% if mode == 'ds' %}active{% endif %}" href="/?mode=ds">DS 模式</a>
             <a class="{% if mode == 'original' %}active{% endif %}" href="/?mode=original">原文模式</a>
             <a href="/sources">源健康</a>
+            <a href="/database">数据库</a>
+            <a href="/tags">标签</a>
             <a href="/digest">周报</a>
           </nav>
         </div>
@@ -36,7 +38,9 @@
         <div><span>{{ stats.unread }}</span><label>未读</label></div>
         <div><span>{{ stats.opened }}</span><label>已打开</label></div>
         <div><span>{{ stats.read }}</span><label>已读</label></div>
-        <div><span>{{ stats.to_read }}</span><label>待精读</label></div>
+        <div><span>{{ stats.to_read }}</span><label>待读</label></div>
+        <div><span>{{ stats.readable }}</span><label>可读</label></div>
+        <div><span>{{ stats.deep_read }}</span><label>精读</label></div>
         <div><span>{{ stats.favorite }}</span><label>收藏</label></div>
         <div><span>{{ stats.zotero_saved }}</span><label>已入 Zotero</label></div>
         <div><span>{{ stats.filtered }}</span><label>已过滤</label></div>
@@ -73,9 +77,18 @@
             <option value="">全部状态</option>
             <option value="unread" {% if read_status == "unread" %}selected{% endif %}>未读</option>
             <option value="opened" {% if read_status == "opened" %}selected{% endif %}>已打开</option>
-            <option value="to_read" {% if read_status == "to_read" %}selected{% endif %}>待精读</option>
+            <option value="to_read" {% if read_status == "to_read" %}selected{% endif %}>待读</option>
             <option value="read" {% if read_status == "read" %}selected{% endif %}>已读</option>
             <option value="filtered" {% if read_status == "filtered" %}selected{% endif %}>已过滤</option>
+          </select>
+        </label>
+        <label>
+          <span>可读性</span>
+          <select name="reading_level">
+            <option value="">全部等级</option>
+            {% for value, label in reading_levels.items() %}
+              <option value="{{ value }}" {% if reading_level == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
           </select>
         </label>
         <label class="check-filter">
@@ -92,7 +105,12 @@
         </label>
         <label>
           <span>标签</span>
-          <input name="tag" value="{{ tag }}" placeholder="genomics">
+          <input name="tag" value="{{ tag }}" placeholder="genomics" list="tag-suggestions">
+          <datalist id="tag-suggestions">
+            {% for item in tag_suggestions %}
+              <option value="{{ item.tag }}">{{ item.total }} 篇</option>
+            {% endfor %}
+          </datalist>
         </label>
         <label>
           <span>起始日期</span>
@@ -111,7 +129,9 @@
           <span>全选当前页</span>
         </label>
         <button data-action="batch-status" data-status="read">批量已读</button>
-        <button data-action="batch-status" data-status="to_read">批量待精读</button>
+        <button data-action="batch-status" data-status="to_read">批量待读</button>
+        <button data-action="batch-reading-level" data-reading-level="readable">批量可读</button>
+        <button data-action="batch-reading-level" data-reading-level="deep_read">批量精读</button>
         <button data-action="batch-status" data-status="filtered">批量过滤</button>
         <button class="danger-button" data-action="batch-delete">批量删除</button>
       </div>
@@ -121,6 +141,7 @@
         {% if smart_q %}<span>智能检索：{{ smart_q }}</span>{% endif %}
         {% if source %}<span>来源：{{ source }}</span>{% endif %}
         {% if read_status %}<span>状态：{{ read_status }}</span>{% endif %}
+        {% if reading_level %}<span>可读性：{{ reading_levels.get(reading_level, reading_level) }}</span>{% endif %}
         {% if author %}<span>作者：{{ author }}</span>{% endif %}
         {% if doi %}<span>DOI：{{ doi }}</span>{% endif %}
         {% if tag %}<span>标签：{{ tag }}</span>{% endif %}
@@ -151,7 +172,8 @@
               <div class="article-kicker">
                 <span class="source-name">{{ article.source_name }}</span>
                 <span>{{ article.published_at or article.fetched_at }}</span>
-                <span class="read-status">状态：{{ article.read_status }}</span>
+                <span class="read-status">状态：{{ read_status_labels.get(article.read_status, article.read_status) }}</span>
+                <span class="reading-level">可读性：{{ reading_levels.get(article.reading_level, article.reading_level) }}</span>
               </div>
               <h2 class="title-cn">
                 {{ article.original_title }}
@@ -170,7 +192,16 @@
               <div class="tag-row">
                 {% for tag in article.system_tags.split(",") %}
                   {% if tag.strip() %}
-                  <span>{{ tag.strip() }}</span>
+                  <a href="/tags/{{ tag.strip()|urlquote }}">{{ tag.strip() }}</a>
+                  {% endif %}
+                {% endfor %}
+              </div>
+              {% endif %}
+              {% if article.tags %}
+              <div class="tag-row user-tags">
+                {% for tag in article.tags.split(",") %}
+                  {% if tag.strip() %}
+                  <a href="/tags/{{ tag.strip()|urlquote }}">{{ tag.strip() }}</a>
                   {% endif %}
                 {% endfor %}
               </div>
@@ -187,7 +218,8 @@
                 <span class="source-name">{{ article.source_name }}</span>
                 <span>{{ article.published_at or article.fetched_at }}</span>
                 <span>标题：{{ article.title_status }}</span>
-                <span class="read-status">状态：{{ article.read_status }}</span>
+                <span class="read-status">状态：{{ read_status_labels.get(article.read_status, article.read_status) }}</span>
+                <span class="reading-level">可读性：{{ reading_levels.get(article.reading_level, article.reading_level) }}</span>
               </div>
               <h2 class="title-cn">
                 {{ article.translated_title or article.original_title }}
@@ -207,7 +239,16 @@
               <div class="tag-row">
                 {% for tag in article.system_tags.split(",") %}
                   {% if tag.strip() %}
-                  <span>{{ tag.strip() }}</span>
+                  <a href="/tags/{{ tag.strip()|urlquote }}">{{ tag.strip() }}</a>
+                  {% endif %}
+                {% endfor %}
+              </div>
+              {% endif %}
+              {% if article.tags %}
+              <div class="tag-row user-tags">
+                {% for tag in article.tags.split(",") %}
+                  {% if tag.strip() %}
+                  <a href="/tags/{{ tag.strip()|urlquote }}">{{ tag.strip() }}</a>
                   {% endif %}
                 {% endfor %}
               </div>
@@ -241,6 +282,14 @@
                     <span>标签</span>
                     <input data-field="tags" value="{{ article.tags }}" placeholder="AI, genomics, method">
                   </label>
+                  <label>
+                    <span>可读性</span>
+                    <select data-field="reading_level">
+                      {% for value, label in reading_levels.items() %}
+                        <option value="{{ value }}" {% if article.reading_level == value %}selected{% endif %}>{{ label }}</option>
+                      {% endfor %}
+                    </select>
+                  </label>
                 </div>
                 <div class="note-actions">
                   <button data-action="save-meta" data-id="{{ article.article_id }}">保存笔记</button>
@@ -256,7 +305,7 @@
               <button data-action="toggle-favorite" data-id="{{ article.article_id }}">
                 {% if article.favorite %}取消收藏{% else %}收藏{% endif %}
               </button>
-              <button data-action="set-status" data-status="to_read" data-id="{{ article.article_id }}">待精读</button>
+              <button data-action="set-status" data-status="to_read" data-id="{{ article.article_id }}">待读</button>
               <button class="{% if article.read_status == 'read' %}status-done{% endif %}" data-action="set-status" data-status="read" data-id="{{ article.article_id }}">{% if article.read_status == 'read' %}已读{% else %}标为已读{% endif %}</button>
               <button data-action="save-zotero" data-id="{{ article.article_id }}" data-zotero-status="{{ article.zotero_status }}">
                 {% if article.zotero_status == "saved" %}已入 Zotero{% else %}存入 Zotero{% endif %}
@@ -274,6 +323,6 @@
         {% endif %}
       </section>
     </main>
-    <script src="/static/app.js?v=20260608-db-workbench"></script>
+    <script src="/static/app.js?v=20260610-knowledge-workbench"></script>
   </body>
 </html>

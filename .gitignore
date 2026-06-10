@@ -5,6 +5,7 @@ __pycache__/
 
 data/*.db
 logs/*.log
+logs/*.pid
 output/*.xml
 volumes/
 

@@ -19,4 +19,5 @@ fi
 mkdir -p data output logs
 
 echo "Install complete."
-echo "Edit .env, then run: bash start.sh"
+echo "Edit .env, then run: ./paper-radar"
+echo "Optional one-time shortcut: bash install-command.sh"

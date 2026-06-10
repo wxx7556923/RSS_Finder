@@ -139,6 +139,24 @@ def _ensure_column(conn: sqlite3.Connection, table: str, column: str, definition
         conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
 
+def _split_tag_values(*values: str | None) -> list[str]:
+    tags: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        for item in (value or "").split(","):
+            tag = item.strip()
+            key = tag.casefold()
+            if tag and key not in seen:
+                seen.add(key)
+                tags.append(tag)
+    return tags
+
+
+def _row_has_tag(row: sqlite3.Row, tag: str) -> bool:
+    needle = tag.strip().casefold()
+    return needle in {item.casefold() for item in _split_tag_values(row["tags"], row["system_tags"])}
+
+
 def init_db() -> None:
     setup_logging()
     with get_connection() as conn:
@@ -178,6 +196,7 @@ def init_db() -> None:
             CREATE TABLE IF NOT EXISTS article_meta (
                 article_id INTEGER PRIMARY KEY,
                 read_status TEXT DEFAULT 'unread',
+                reading_level TEXT DEFAULT 'none',
                 favorite INTEGER DEFAULT 0,
                 user_note TEXT,
                 tags TEXT,
@@ -194,8 +213,10 @@ def init_db() -> None:
             """
         )
         _ensure_column(conn, "article_meta", "system_tags", "TEXT")
+        _ensure_column(conn, "article_meta", "reading_level", "TEXT DEFAULT 'none'")
         _ensure_column(conn, "article_meta", "zotero_status", "TEXT DEFAULT 'not_saved'")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_article_meta_read_status ON article_meta(read_status)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_article_meta_reading_level ON article_meta(reading_level)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_article_meta_favorite ON article_meta(favorite)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_article_meta_zotero_status ON article_meta(zotero_status)")
         conn.execute(
@@ -310,6 +331,7 @@ def list_articles(
     smart_terms: list[str] | None = None,
     source: str | None = None,
     read_status: str | None = None,
+    reading_level: str | None = None,
     favorite: bool | None = None,
     author: str | None = None,
     doi: str | None = None,
@@ -364,6 +386,9 @@ def list_articles(
     if read_status:
         where.append("COALESCE(m.read_status, 'unread') = ?")
         params.append(read_status)
+    if reading_level:
+        where.append("COALESCE(m.reading_level, 'none') = ?")
+        params.append(reading_level)
     if favorite is not None:
         where.append("COALESCE(m.favorite, 0) = ?")
         params.append(1 if favorite else 0)
@@ -390,6 +415,7 @@ def list_articles(
             SELECT
                 a.*,
                 COALESCE(m.read_status, 'unread') AS read_status,
+                COALESCE(m.reading_level, 'none') AS reading_level,
                 COALESCE(m.favorite, 0) AS favorite,
                 COALESCE(m.user_note, '') AS user_note,
                 COALESCE(m.tags, '') AS tags,
@@ -428,6 +454,7 @@ def get_article_detail(article_id: int) -> sqlite3.Row | None:
             SELECT
                 a.*,
                 COALESCE(m.read_status, 'unread') AS read_status,
+                COALESCE(m.reading_level, 'none') AS reading_level,
                 COALESCE(m.favorite, 0) AS favorite,
                 COALESCE(m.user_note, '') AS user_note,
                 COALESCE(m.tags, '') AS tags,
@@ -453,6 +480,7 @@ def iter_article_details() -> list[sqlite3.Row]:
             SELECT
                 a.*,
                 COALESCE(m.read_status, 'unread') AS read_status,
+                COALESCE(m.reading_level, 'none') AS reading_level,
                 COALESCE(m.favorite, 0) AS favorite,
                 COALESCE(m.user_note, '') AS user_note,
                 COALESCE(m.tags, '') AS tags,
@@ -524,6 +552,28 @@ def batch_update_status(article_ids: list[int], read_status: str) -> int:
     return len(ids)
 
 
+def batch_update_reading_level(article_ids: list[int], reading_level: str) -> int:
+    init_db()
+    ids = [int(article_id) for article_id in article_ids if int(article_id) > 0]
+    if not ids:
+        return 0
+    timestamp = now_iso()
+    with get_connection() as conn:
+        for article_id in ids:
+            conn.execute(
+                """
+                INSERT INTO article_meta (article_id, reading_level, created_at, updated_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(article_id) DO UPDATE SET
+                    reading_level = excluded.reading_level,
+                    updated_at = excluded.updated_at
+                """,
+                (article_id, reading_level, timestamp, timestamp),
+            )
+        conn.commit()
+    return len(ids)
+
+
 def batch_delete_articles(article_ids: list[int]) -> int:
     count = 0
     for article_id in article_ids:
@@ -549,6 +599,7 @@ def recent_digest(days: int = 7, limit: int = 200) -> list[sqlite3.Row]:
             SELECT
                 a.*,
                 COALESCE(m.read_status, 'unread') AS read_status,
+                COALESCE(m.reading_level, 'none') AS reading_level,
                 COALESCE(m.favorite, 0) AS favorite,
                 COALESCE(m.user_note, '') AS user_note,
                 COALESCE(m.tags, '') AS tags,
@@ -673,6 +724,9 @@ def get_stats() -> dict[str, int]:
                 SUM(CASE WHEN COALESCE(m.read_status, 'unread') = 'read' THEN 1 ELSE 0 END) AS read,
                 SUM(CASE WHEN COALESCE(m.read_status, 'unread') = 'to_read' THEN 1 ELSE 0 END) AS to_read,
                 SUM(CASE WHEN COALESCE(m.read_status, 'unread') = 'filtered' THEN 1 ELSE 0 END) AS filtered,
+                SUM(CASE WHEN COALESCE(m.reading_level, 'none') = 'skim' THEN 1 ELSE 0 END) AS skim,
+                SUM(CASE WHEN COALESCE(m.reading_level, 'none') = 'readable' THEN 1 ELSE 0 END) AS readable,
+                SUM(CASE WHEN COALESCE(m.reading_level, 'none') = 'deep_read' THEN 1 ELSE 0 END) AS deep_read,
                 SUM(CASE WHEN COALESCE(m.favorite, 0) = 1 THEN 1 ELSE 0 END) AS favorite,
                 SUM(CASE WHEN COALESCE(m.zotero_status, 'not_saved') = 'saved' THEN 1 ELSE 0 END) AS zotero_saved,
                 SUM(CASE WHEN title_status = 'translated' THEN 1 ELSE 0 END) AS translated,
@@ -689,6 +743,9 @@ def get_stats() -> dict[str, int]:
         "read": int(row["read"] or 0),
         "to_read": int(row["to_read"] or 0),
         "filtered": int(row["filtered"] or 0),
+        "skim": int(row["skim"] or 0),
+        "readable": int(row["readable"] or 0),
+        "deep_read": int(row["deep_read"] or 0),
         "favorite": int(row["favorite"] or 0),
         "zotero_saved": int(row["zotero_saved"] or 0),
         "translated": int(row["translated"] or 0),
@@ -700,6 +757,7 @@ def get_stats() -> dict[str, int]:
 def update_article_meta(
     article_id: int,
     read_status: str | None = None,
+    reading_level: str | None = None,
     favorite: bool | None = None,
     user_note: str | None = None,
     tags: str | None = None,
@@ -727,6 +785,9 @@ def update_article_meta(
         if read_status is not None:
             fields.append("read_status = ?")
             params.append(read_status)
+        if reading_level is not None:
+            fields.append("reading_level = ?")
+            params.append(reading_level)
         if favorite is not None:
             fields.append("favorite = ?")
             params.append(1 if favorite else 0)
@@ -763,6 +824,7 @@ def update_article_meta(
             SELECT
                 a.*,
                 COALESCE(m.read_status, 'unread') AS read_status,
+                COALESCE(m.reading_level, 'none') AS reading_level,
                 COALESCE(m.favorite, 0) AS favorite,
                 COALESCE(m.user_note, '') AS user_note,
                 COALESCE(m.tags, '') AS tags,
@@ -778,6 +840,162 @@ def update_article_meta(
             """,
             (article_id,),
         ).fetchone()
+
+
+def list_tags(limit: int | None = None) -> list[dict[str, Any]]:
+    rows = iter_article_details()
+    tags: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        user_tags = _split_tag_values(row["tags"])
+        system_tags = _split_tag_values(row["system_tags"])
+        for tag in _split_tag_values(row["tags"], row["system_tags"]):
+            bucket = tags.setdefault(
+                tag.casefold(),
+                {
+                    "tag": tag,
+                    "total": 0,
+                    "user_count": 0,
+                    "system_count": 0,
+                    "unread": 0,
+                    "opened": 0,
+                    "read": 0,
+                    "to_read": 0,
+                    "filtered": 0,
+                    "skim": 0,
+                    "readable": 0,
+                    "deep_read": 0,
+                    "favorite": 0,
+                    "noted": 0,
+                    "latest_at": "",
+                },
+            )
+            bucket["total"] += 1
+            if tag in user_tags:
+                bucket["user_count"] += 1
+            if tag in system_tags:
+                bucket["system_count"] += 1
+            read_status = str(row["read_status"] or "unread")
+            reading_level = str(row["reading_level"] or "none")
+            if read_status in {"unread", "opened", "read", "to_read", "filtered"}:
+                bucket[read_status] += 1
+            if reading_level in {"skim", "readable", "deep_read"}:
+                bucket[reading_level] += 1
+            if row["favorite"]:
+                bucket["favorite"] += 1
+            if str(row["user_note"] or "").strip():
+                bucket["noted"] += 1
+            latest_at = str(row["published_at"] or row["fetched_at"] or row["created_at"] or "")
+            if latest_at > bucket["latest_at"]:
+                bucket["latest_at"] = latest_at
+    result = sorted(tags.values(), key=lambda item: (-int(item["total"]), str(item["tag"]).casefold()))
+    if limit is not None:
+        return result[:limit]
+    return result
+
+
+def get_tag_summary(tag: str) -> dict[str, Any] | None:
+    target = tag.strip().casefold()
+    for item in list_tags():
+        if str(item["tag"]).casefold() == target:
+            return item
+    return None
+
+
+def list_articles_by_tag(tag: str, limit: int = 500) -> list[sqlite3.Row]:
+    rows = list_articles(limit=max(limit * 2, 500), tag=tag)
+    exact_rows = [row for row in rows if _row_has_tag(row, tag)]
+    return exact_rows[:limit]
+
+
+def get_database_overview() -> dict[str, Any]:
+    init_db()
+    db_size = DB_PATH.stat().st_size if DB_PATH.exists() else 0
+    with get_connection() as conn:
+        table_counts = {
+            "articles": int(conn.execute("SELECT COUNT(*) FROM articles").fetchone()[0] or 0),
+            "article_meta": int(conn.execute("SELECT COUNT(*) FROM article_meta").fetchone()[0] or 0),
+            "deleted_articles": int(conn.execute("SELECT COUNT(*) FROM deleted_articles").fetchone()[0] or 0),
+            "source_health": int(conn.execute("SELECT COUNT(*) FROM source_health").fetchone()[0] or 0),
+        }
+        read_statuses = conn.execute(
+            """
+            SELECT COALESCE(m.read_status, 'unread') AS name, COUNT(*) AS count
+            FROM articles a
+            LEFT JOIN article_meta m ON m.article_id = a.article_id
+            GROUP BY COALESCE(m.read_status, 'unread')
+            ORDER BY count DESC, name
+            """
+        ).fetchall()
+        reading_levels = conn.execute(
+            """
+            SELECT COALESCE(m.reading_level, 'none') AS name, COUNT(*) AS count
+            FROM articles a
+            LEFT JOIN article_meta m ON m.article_id = a.article_id
+            GROUP BY COALESCE(m.reading_level, 'none')
+            ORDER BY count DESC, name
+            """
+        ).fetchall()
+        title_statuses = conn.execute(
+            """
+            SELECT COALESCE(title_status, 'unknown') AS name, COUNT(*) AS count
+            FROM articles
+            GROUP BY COALESCE(title_status, 'unknown')
+            ORDER BY count DESC, name
+            """
+        ).fetchall()
+        summary_statuses = conn.execute(
+            """
+            SELECT COALESCE(summary_status, 'unknown') AS name, COUNT(*) AS count
+            FROM articles
+            GROUP BY COALESCE(summary_status, 'unknown')
+            ORDER BY count DESC, name
+            """
+        ).fetchall()
+        sources = conn.execute(
+            """
+            SELECT
+                source_name,
+                COUNT(*) AS total,
+                SUM(CASE WHEN COALESCE(m.read_status, 'unread') = 'unread' THEN 1 ELSE 0 END) AS unread,
+                SUM(CASE WHEN COALESCE(m.read_status, 'unread') = 'filtered' THEN 1 ELSE 0 END) AS filtered,
+                MAX(COALESCE(a.published_at, a.fetched_at, a.created_at)) AS latest_at
+            FROM articles a
+            LEFT JOIN article_meta m ON m.article_id = a.article_id
+            GROUP BY source_name
+            ORDER BY total DESC, source_name
+            LIMIT 25
+            """
+        ).fetchall()
+        recent_articles = conn.execute(
+            """
+            SELECT
+                a.article_id,
+                a.source_name,
+                a.original_title,
+                a.translated_title,
+                COALESCE(a.published_at, a.fetched_at, a.created_at) AS latest_at,
+                COALESCE(m.read_status, 'unread') AS read_status,
+                COALESCE(m.reading_level, 'none') AS reading_level
+            FROM articles a
+            LEFT JOIN article_meta m ON m.article_id = a.article_id
+            ORDER BY datetime(COALESCE(a.fetched_at, a.created_at, a.published_at)) DESC, a.article_id DESC
+            LIMIT 20
+            """
+        ).fetchall()
+    return {
+        "db_path": str(DB_PATH),
+        "db_size": db_size,
+        "db_size_mb": round(db_size / 1024 / 1024, 2),
+        "table_counts": table_counts,
+        "stats": get_stats(),
+        "read_statuses": read_statuses,
+        "reading_levels": reading_levels,
+        "title_statuses": title_statuses,
+        "summary_statuses": summary_statuses,
+        "sources": sources,
+        "tags": list_tags(limit=30),
+        "recent_articles": recent_articles,
+    }
 
 
 def mark_article_opened(article_id: int) -> None:

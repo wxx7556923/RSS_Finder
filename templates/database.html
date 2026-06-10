@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>数据库概览</title>
+    <link rel="stylesheet" href="/static/style.css?v=20260610-knowledge-workbench">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <h1>数据库概览</h1>
+          <p class="feed-link">{{ overview.db_path }} · {{ overview.db_size_mb }} MB</p>
+          <nav class="mode-switch" aria-label="导航">
+            <a href="/?mode=original">原文模式</a>
+            <a href="/?mode=ds">DS 模式</a>
+            <a href="/sources">源健康</a>
+            <a class="active" href="/database">数据库</a>
+            <a href="/tags">标签</a>
+            <a href="/digest">周报</a>
+          </nav>
+        </div>
+        <div class="actions">
+          <a class="button-link" href="/api/backup/db">备份数据库</a>
+          <a class="button-link" href="/api/export/articles.json">导出 JSON</a>
+          {% if show_ai %}
+          <a class="button-link" href="/database">隐藏 AI 状态</a>
+          {% else %}
+          <a class="button-link" href="/database?show_ai=1">显示 AI 状态</a>
+          {% endif %}
+        </div>
+      </header>
+
+      <section class="stats" aria-label="数据库统计">
+        <div><span>{{ overview.table_counts.articles }}</span><label>文章</label></div>
+        <div><span>{{ overview.table_counts.article_meta }}</span><label>元数据</label></div>
+        <div><span>{{ overview.table_counts.source_health }}</span><label>来源</label></div>
+        <div><span>{{ overview.table_counts.deleted_articles }}</span><label>已删除屏蔽</label></div>
+        <div><span>{{ overview.stats.unread }}</span><label>未读</label></div>
+        <div><span>{{ overview.stats.read }}</span><label>已读</label></div>
+        <div><span>{{ overview.stats.readable }}</span><label>可读</label></div>
+        <div><span>{{ overview.stats.deep_read }}</span><label>精读</label></div>
+      </section>
+
+      <section class="dashboard-grid">
+        <section class="panel">
+          <h2>阅读状态</h2>
+          <div class="mini-table">
+            {% for row in overview.read_statuses %}
+            <a href="/?read_status={{ row.name|urlquote }}">
+              <span>{{ read_status_labels.get(row.name, row.name) }}</span>
+              <strong>{{ row.count }}</strong>
+            </a>
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>可读性</h2>
+          <div class="mini-table">
+            {% for row in overview.reading_levels %}
+            <a href="/?reading_level={{ row.name|urlquote }}">
+              <span>{{ reading_levels.get(row.name, row.name) }}</span>
+              <strong>{{ row.count }}</strong>
+            </a>
+            {% endfor %}
+          </div>
+        </section>
+      </section>
+
+      {% if show_ai %}
+      <section class="dashboard-grid">
+        <section class="panel">
+          <h2>AI 标题翻译</h2>
+          <div class="mini-table">
+            {% for row in overview.title_statuses %}
+            <div>
+              <span>{{ row.name }}</span>
+              <strong>{{ row.count }}</strong>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>AI 三行摘要</h2>
+          <div class="mini-table">
+            {% for row in overview.summary_statuses %}
+            <div>
+              <span>{{ row.name }}</span>
+              <strong>{{ row.count }}</strong>
+            </div>
+            {% endfor %}
+          </div>
+        </section>
+      </section>
+      {% endif %}
+
+      <section class="panel">
+        <h2>标签分布</h2>
+        <div class="tag-cloud">
+          {% for item in overview.tags %}
+          <a href="/tags/{{ item.tag|urlquote }}">
+            <strong>{{ item.tag }}</strong>
+            <span>{{ item.total }}</span>
+            {% if item.deep_read %}<em>精读 {{ item.deep_read }}</em>{% endif %}
+            {% if item.noted %}<em>批注 {{ item.noted }}</em>{% endif %}
+          </a>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>来源分布</h2>
+        <div class="simple-table source-summary">
+          <div class="simple-head">
+            <span>来源</span>
+            <span>文章</span>
+            <span>未读</span>
+            <span>过滤</span>
+            <span>最近</span>
+          </div>
+          {% for source in overview.sources %}
+          <a href="/?source={{ source.source_name|urlquote }}">
+            <span>{{ source.source_name }}</span>
+            <span>{{ source.total }}</span>
+            <span>{{ source.unread }}</span>
+            <span>{{ source.filtered }}</span>
+            <span>{{ source.latest_at or "" }}</span>
+          </a>
+          {% endfor %}
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>最近入库</h2>
+        <div class="simple-table recent-summary">
+          <div class="simple-head">
+            <span>标题</span>
+            <span>来源</span>
+            <span>状态</span>
+            <span>可读性</span>
+            <span>时间</span>
+          </div>
+          {% for article in overview.recent_articles %}
+          <a href="/?q={{ (article.translated_title or article.original_title)|urlquote }}">
+            <span>{{ article.translated_title or article.original_title }}</span>
+            <span>{{ article.source_name }}</span>
+            <span>{{ read_status_labels.get(article.read_status, article.read_status) }}</span>
+            <span>{{ reading_levels.get(article.reading_level, article.reading_level) }}</span>
+            <span>{{ article.latest_at or "" }}</span>
+          </a>
+          {% endfor %}
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

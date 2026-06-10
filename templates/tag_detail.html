@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ tag }}</title>
+    <link rel="stylesheet" href="/static/style.css?v=20260610-knowledge-workbench">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <h1>{{ tag }}</h1>
+          <p class="feed-link">{{ summary.total }} 篇 · 可读 {{ summary.readable }} · 精读 {{ summary.deep_read }} · 批注 {{ summary.noted }}</p>
+          <nav class="mode-switch" aria-label="导航">
+            <a href="/?mode=original">原文模式</a>
+            <a href="/?mode=ds&tag={{ tag|urlquote }}">首页筛选</a>
+            <a href="/database">数据库</a>
+            <a href="/tags">标签</a>
+            <a href="/digest">周报</a>
+          </nav>
+        </div>
+      </header>
+
+      <section class="stats" aria-label="标签统计">
+        <div><span>{{ summary.total }}</span><label>文章</label></div>
+        <div><span>{{ summary.unread }}</span><label>未读</label></div>
+        <div><span>{{ summary.read }}</span><label>已读</label></div>
+        <div><span>{{ summary.readable }}</span><label>可读</label></div>
+        <div><span>{{ summary.deep_read }}</span><label>精读</label></div>
+        <div><span>{{ summary.noted }}</span><label>有批注</label></div>
+        <div><span>{{ summary.favorite }}</span><label>收藏</label></div>
+        <div><span>{{ summary.filtered }}</span><label>过滤</label></div>
+      </section>
+
+      <section class="articles">
+        {% for article in articles %}
+        <article class="card tag-detail-card {% if article.user_note %}noted-card{% endif %}">
+          <div></div>
+          <div class="card-main">
+            <div class="article-kicker">
+              <span class="source-name">{{ article.source_name }}</span>
+              <span>{{ article.published_at or article.fetched_at }}</span>
+              <span>状态：{{ read_status_labels.get(article.read_status, article.read_status) }}</span>
+              <span>可读性：{{ reading_levels.get(article.reading_level, article.reading_level) }}</span>
+            </div>
+            <h2 class="title-cn">{{ article.translated_title or article.original_title }}</h2>
+            {% if article.translated_title %}<p class="title-original">{{ article.original_title }}</p>{% endif %}
+            <div class="meta">
+              {% if article.favorite %}<span class="favorite-badge">收藏</span>{% endif %}
+              {% if article.zotero_status == "saved" %}<span class="zotero-badge">已入 Zotero</span>{% endif %}
+              {% if article.authors %}<span>作者：{{ article.authors }}</span>{% endif %}
+              {% if article.doi %}<span>DOI：{{ article.doi }}</span>{% endif %}
+            </div>
+            {% if article.system_tags or article.tags %}
+            <div class="tag-row">
+              {% for item in article.system_tags.split(",") %}
+                {% if item.strip() %}<a href="/tags/{{ item.strip()|urlquote }}">{{ item.strip() }}</a>{% endif %}
+              {% endfor %}
+              {% for item in article.tags.split(",") %}
+                {% if item.strip() %}<a class="tag-user" href="/tags/{{ item.strip()|urlquote }}">{{ item.strip() }}</a>{% endif %}
+              {% endfor %}
+            </div>
+            {% endif %}
+            {% if article.user_note %}
+            <div class="note-box">
+              <strong>我的批注</strong>
+              <p>{{ article.user_note }}</p>
+            </div>
+            {% endif %}
+            <div class="summary">
+              <p>{{ article.original_description or "来源未提供摘要。" }}</p>
+            </div>
+          </div>
+          <div class="card-actions">
+            {% if article.link %}
+            <a class="button-link primary-link" href="/api/articles/{{ article.article_id }}/open" target="_blank" rel="noreferrer">打开原文</a>
+            {% endif %}
+            <a class="button-link" href="/?mode=ds&q={{ (article.translated_title or article.original_title)|urlquote }}">回首页定位</a>
+            <a class="button-link" href="/api/articles/{{ article.article_id }}/ris">导出 RIS</a>
+          </div>
+        </article>
+        {% endfor %}
+      </section>
+    </main>
+  </body>
+</html>
