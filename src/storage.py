@@ -1007,9 +1007,12 @@ def mark_article_opened(article_id: int) -> None:
         conn.execute(
             """
             INSERT INTO article_meta (article_id, read_status, opened_at, created_at, updated_at)
-            VALUES (?, 'read', ?, ?, ?)
+            VALUES (?, 'opened', ?, ?, ?)
             ON CONFLICT(article_id) DO UPDATE SET
-                read_status = 'read',
+                read_status = CASE
+                    WHEN article_meta.read_status IN ('read', 'filtered', 'to_read') THEN article_meta.read_status
+                    ELSE 'opened'
+                END,
                 opened_at = COALESCE(article_meta.opened_at, excluded.opened_at),
                 updated_at = excluded.updated_at
             """,

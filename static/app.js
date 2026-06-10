@@ -149,8 +149,11 @@ document.addEventListener("click", async (event) => {
   if (originalLink) {
     const id = originalLink.dataset.id;
     const card = document.querySelector(`#article-${id}`);
-    if (card) updateReadStatus(card, "read");
-    if (!shouldKeepArticleVisible("read")) removeArticleCard(card);
+    if (card) {
+      updateReadStatus(card, "opened");
+      card.dataset.readStatus = "opened";
+    }
+    if (!shouldKeepArticleVisible("opened")) removeArticleCard(card);
     return;
   }
 
