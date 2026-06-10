@@ -14,6 +14,12 @@ wsl --install -d Ubuntu
 
 安装完成后重启电脑，第一次打开 Ubuntu 时按提示创建用户名和密码。
 
+注意：刚安装完 WSL 后，不要直接启动 Paper Radar。请先完成这三步：
+
+1. 重启 Windows。
+2. 从开始菜单打开一次 `Ubuntu`。
+3. 按提示创建 Ubuntu 用户名和密码，看到 Ubuntu 命令行后再关闭窗口。
+
 ## 第一次安装 Paper Radar
 
 解压这个 zip 后，双击：
@@ -114,6 +120,15 @@ Windows-Logs.bat
 ```
 
 如果提示 WSL 不存在，需要先安装 WSL Ubuntu。
+
+如果刚安装过 WSL，通常是因为还没有重启电脑，或者还没有第一次打开 Ubuntu 完成用户名和密码设置。请先重启，再从开始菜单打开 `Ubuntu` 完成初始化，然后重新运行：
+
+```text
+Windows-Install.bat
+Windows-Start.bat
+```
+
+如果浏览器已经打开但 `localhost:8090` 显示无法访问，等 10 秒后再试一次 `Windows-Start.bat`，或者运行 `Windows-Logs.bat` 查看日志。
 
 ### 端口 8090 被占用
 
