@@ -18,7 +18,7 @@ if errorlevel 1 (
   exit /b 1
 )
 
-wsl.exe bash -lc "cd \"$(wslpath '%ROOT%')\" && bash paper-radar start"
+wsl.exe bash -lc "cd \"$(wslpath '%ROOT%')\" && PAPER_RADAR_OPEN=0 bash paper-radar start"
 if errorlevel 1 (
   echo.
   echo 启动失败。请运行 Windows-Logs.bat 查看日志。

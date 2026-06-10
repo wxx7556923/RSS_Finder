@@ -58,9 +58,29 @@ requirements_hash() {
   fi
 }
 
+install_python_packages() {
+  command -v apt-get >/dev/null 2>&1 || return 1
+  echo "Installing Python base packages with apt..."
+  if command -v sudo >/dev/null 2>&1; then
+    sudo apt-get update
+    sudo apt-get install -y python3 python3-venv python3-pip
+  else
+    apt-get update
+    apt-get install -y python3 python3-venv python3-pip
+  fi
+}
+
 ensure_venv() {
-  if ! command -v python3 >/dev/null 2>&1; then
-    echo "python3 is required. On Ubuntu/Debian: sudo apt install python3 python3-venv python3-pip"
+  if ! command -v python3 >/dev/null 2>&1 || ! python3 -c "import venv" >/dev/null 2>&1; then
+    install_python_packages || {
+      echo "python3 and python3-venv are required."
+      echo "On Ubuntu/Debian: sudo apt-get install -y python3 python3-venv python3-pip"
+      exit 1
+    }
+  fi
+
+  if ! command -v python3 >/dev/null 2>&1 || ! python3 -c "import venv" >/dev/null 2>&1; then
+    echo "python3 and python3-venv are required."
     exit 1
   fi
 
