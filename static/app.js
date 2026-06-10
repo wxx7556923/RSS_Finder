@@ -108,6 +108,33 @@ function selectedArticleIds() {
   return [...document.querySelectorAll(".article-select:checked")].map((item) => Number(item.value));
 }
 
+function readStatusFilter() {
+  return new URLSearchParams(window.location.search).get("read_status") || "";
+}
+
+function shouldKeepArticleVisible(readStatus) {
+  const filter = readStatusFilter();
+  if (filter) return readStatus === filter;
+  return !["read", "filtered"].includes(readStatus);
+}
+
+function showEmptyIfNoArticles() {
+  const articles = document.querySelector(".articles");
+  if (!articles || articles.querySelector(".card")) return;
+  articles.innerHTML = `
+    <section class="empty">
+      <h2>当前页没有文章</h2>
+      <p>可以调整筛选条件或同步新文章。</p>
+    </section>
+  `;
+}
+
+function removeArticleCard(card) {
+  if (!card) return;
+  card.remove();
+  showEmptyIfNoArticles();
+}
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -123,6 +150,7 @@ document.addEventListener("click", async (event) => {
     const id = originalLink.dataset.id;
     const card = document.querySelector(`#article-${id}`);
     if (card) updateReadStatus(card, "read");
+    if (!shouldKeepArticleVisible("read")) removeArticleCard(card);
     return;
   }
 
@@ -203,10 +231,8 @@ document.addEventListener("click", async (event) => {
         target.classList.add("status-done");
         target.textContent = "已读";
         target.dataset.originalText = "已读";
-        if (new URLSearchParams(window.location.search).get("read_status") === "unread") {
-          card?.remove();
-        }
       }
+      if (!shouldKeepArticleVisible(data.read_status)) removeArticleCard(card);
       showNotice("阅读状态已更新。");
     }
 
@@ -230,10 +256,21 @@ document.addEventListener("click", async (event) => {
 
     if (action === "batch-status") {
       const ids = selectedArticleIds();
+      const status = target.dataset.status;
       setLoading(target, true, "批量保存...");
-      const data = await postJson("/api/articles/batch", { article_ids: ids, action: target.dataset.status });
+      const data = await postJson("/api/articles/batch", { article_ids: ids, action: status });
+      for (const id of ids) {
+        const card = document.querySelector(`#article-${id}`);
+        if (!card) continue;
+        updateReadStatus(card, status);
+        card.dataset.readStatus = status;
+        if (shouldKeepArticleVisible(status)) {
+          card.querySelector(".article-select").checked = false;
+          continue;
+        }
+        removeArticleCard(card);
+      }
       showNotice(`批量更新完成：${data.count} 篇。`);
-      window.location.reload();
     }
 
     if (action === "batch-reading-level") {
