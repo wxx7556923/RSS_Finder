@@ -508,6 +508,16 @@ button:disabled {
   width: fit-content;
 }
 
+.article-note.note-saved {
+  border-top-color: #9ccc65;
+}
+
+.article-note.note-saved summary,
+.article-note.note-saved summary::marker {
+  color: #2f7d32;
+  font-weight: 600;
+}
+
 .note-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(220px, 0.45fr);
@@ -520,6 +530,18 @@ button:disabled {
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 10px;
+}
+
+.note-actions .note-save-done {
+  background: #eaf6ef;
+  border-color: #54a46d;
+  color: #1f7a3d;
+  font-weight: 600;
+}
+
+.note-actions .note-save-done:hover {
+  border-color: #1f7a3d;
+  color: #1f7a3d;
 }
 
 .card-actions {

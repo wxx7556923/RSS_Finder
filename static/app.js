@@ -104,6 +104,18 @@ function updateZotero(card, statusValue) {
   if (!saved && badge) badge.remove();
 }
 
+function updateNoteSavedState(card, saved) {
+  if (!card) return;
+  const note = card.querySelector(".article-note");
+  const button = card.querySelector('[data-action="save-meta"]');
+  note?.classList.toggle("note-saved", saved);
+  if (button) {
+    button.classList.toggle("note-save-done", saved);
+    button.textContent = saved ? "已保存" : "保存笔记";
+    button.dataset.originalText = button.textContent;
+  }
+}
+
 function selectedArticleIds() {
   return [...document.querySelectorAll(".article-select:checked")].map((item) => Number(item.value));
 }
@@ -169,7 +181,7 @@ document.addEventListener("click", async (event) => {
       const data = await postJson("/api/sync");
       const translate = data.translate || {};
       showNotice(
-        `同步完成：新增 ${data.fetch?.added || 0} 篇，规则标记 ${data.rules?.tagged || 0} 篇，标题翻译 ${translate.success || 0} 篇。`
+        `同步完成：新增 ${data.fetch?.added || 0} 篇，PubMed 补摘要 ${data.fetch?.pubmed_backfilled || 0} 篇，规则标记 ${data.rules?.tagged || 0} 篇，标题翻译 ${translate.success || 0} 篇。`
       );
       window.location.reload();
     }
@@ -177,8 +189,17 @@ document.addEventListener("click", async (event) => {
     if (action === "fetch") {
       setLoading(target, true, "抓取中...");
       const data = await postJson("/api/fetch");
-      showNotice(`抓取完成：新增 ${data.added} 篇，总计 ${data.total} 篇。`);
+      showNotice(`抓取完成：新增 ${data.added} 篇，PubMed 补摘要 ${data.pubmed_backfilled || 0} 篇，总计 ${data.total} 篇。`);
       window.location.reload();
+    }
+
+    if (action === "pubmed-backfill") {
+      setLoading(target, true, "补全中...");
+      const data = await postJson("/api/pubmed-backfill");
+      showNotice(
+        `PubMed 补摘要完成：候选 ${data.candidates || 0} 篇，检查 ${data.checked || 0} 篇，补全 ${data.backfilled || 0} 篇，跳过 ${data.skipped || 0} 篇。`
+      );
+      if ((data.backfilled || 0) > 0) window.location.reload();
     }
 
     if (action === "apply-rules") {
@@ -209,6 +230,7 @@ document.addEventListener("click", async (event) => {
       updateReadStatus(card, data.read_status);
       updateReadingLevel(card, data.reading_level);
       updateFavorite(card, data.favorite);
+      updateNoteSavedState(card, true);
       showNotice("笔记已保存。");
     }
 
@@ -310,6 +332,18 @@ if (filters) {
     }
   });
 }
+
+document.addEventListener("input", (event) => {
+  const field = event.target.closest(".article-note [data-field]");
+  if (!field) return;
+  updateNoteSavedState(field.closest(".card"), false);
+});
+
+document.addEventListener("change", (event) => {
+  const field = event.target.closest(".article-note [data-field]");
+  if (!field) return;
+  updateNoteSavedState(field.closest(".card"), false);
+});
 
 const selectAll = document.querySelector("#select-all-articles");
 if (selectAll) {

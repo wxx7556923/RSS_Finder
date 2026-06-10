@@ -159,6 +159,23 @@ pradar restart
 pradar logs
 ```
 
+## Windows 新手包
+
+不熟悉 Linux 的用户可以看：
+
+```text
+README-Windows.md
+```
+
+日常只需要双击：
+
+```text
+windows\install.bat
+windows\start.bat
+```
+
+Windows 脚本会通过 WSL Ubuntu 启动本地 Web 控制台。
+
 ## 日常使用
 
 推荐主流程：

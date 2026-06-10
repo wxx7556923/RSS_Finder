@@ -8,5 +8,6 @@ logs/*.log
 logs/*.pid
 output/*.xml
 volumes/
+dist/
 
 .DS_Store

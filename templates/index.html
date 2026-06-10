@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ app_title }}</title>
-    <link rel="stylesheet" href="/static/style.css?v=20260610-knowledge-workbench">
+    <link rel="stylesheet" href="/static/style.css?v=20260610-note-saved-state">
   </head>
   <body data-mode="{{ mode }}">
     <main class="shell">
@@ -23,6 +23,7 @@
         <div class="actions">
           <button data-action="sync">一键同步</button>
           <button data-action="fetch">抓取新文章</button>
+          <button data-action="pubmed-backfill">补 PubMed 摘要</button>
           <button data-action="apply-rules">应用规则</button>
           {% if mode == "ds" %}
           <button data-action="translate">批量翻译标题</button>
@@ -271,7 +272,7 @@
                 {% endif %}
               </div>
               {% endif %}
-              <details class="article-note">
+              <details class="article-note {% if article.user_note or article.tags or article.reading_level != 'none' %}note-saved{% endif %}">
                 <summary>笔记和管理</summary>
                 <div class="note-grid">
                   <label>
@@ -292,7 +293,7 @@
                   </label>
                 </div>
                 <div class="note-actions">
-                  <button data-action="save-meta" data-id="{{ article.article_id }}">保存笔记</button>
+                  <button class="{% if article.user_note or article.tags or article.reading_level != 'none' %}note-save-done{% endif %}" data-action="save-meta" data-id="{{ article.article_id }}">{% if article.user_note or article.tags or article.reading_level != 'none' %}已保存{% else %}保存笔记{% endif %}</button>
                 </div>
               </details>
             </div>
@@ -323,6 +324,6 @@
         {% endif %}
       </section>
     </main>
-    <script src="/static/app.js?v=20260610-opened-status-fix"></script>
+    <script src="/static/app.js?v=20260610-pubmed-backfill-existing"></script>
   </body>
 </html>

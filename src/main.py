@@ -14,6 +14,9 @@ def build_parser() -> argparse.ArgumentParser:
     fetch_parser = subparsers.add_parser("fetch", help="Fetch RSS articles")
     fetch_parser.add_argument("--limit", type=int, default=None)
 
+    pubmed_parser = subparsers.add_parser("pubmed-backfill", help="Backfill short ScienceDirect descriptions from PubMed")
+    pubmed_parser.add_argument("--limit", type=int, default=100)
+
     translate_parser = subparsers.add_parser("translate-titles", help="Translate pending article titles")
     translate_parser.add_argument("--concurrency", type=int, default=None)
     translate_parser.add_argument("--limit", type=int, default=None)
@@ -36,6 +39,13 @@ async def async_main(argv: list[str] | None = None) -> int:
         from . import rss_parser
 
         result = await rss_parser.fetch_and_store(limit=args.limit)
+        print(result)
+        return 0
+
+    if args.command == "pubmed-backfill":
+        from . import rss_parser
+
+        result = await rss_parser.backfill_existing_pubmed_abstracts(limit=args.limit)
         print(result)
         return 0
 

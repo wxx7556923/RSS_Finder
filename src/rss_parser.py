@@ -6,6 +6,7 @@ import html
 import logging
 import re
 import time
+import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -22,6 +23,7 @@ REQUEST_HEADERS = {
     "User-Agent": "Mozilla/5.0 (compatible; RSSAISummary/0.1; +http://localhost:8090)",
     "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml, */*",
 }
+PUBMED_EUTILS_BASE = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
 
 
 def _clean_text(value: str | None) -> str:
@@ -37,6 +39,72 @@ def _clean_doi(value: str | None) -> str:
         return ""
     match = re.search(r"10\.\d{4,9}/[-._;()/:A-Za-z0-9]+", value)
     return match.group(0).rstrip(".,;)") if match else ""
+
+
+def _normalize_title(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", value.lower())
+
+
+def _science_direct_pii(value: str | None) -> str:
+    if not value:
+        return ""
+    match = re.search(r"/pii/(S[0-9A-Z]+)", value)
+    return match.group(1) if match else ""
+
+
+def _short_source_label(source_name: str) -> str:
+    return source_name.replace(" (ScienceDirect Feed)", "").strip()
+
+
+def _needs_pubmed_backfill(source_name: str, description: str | None) -> bool:
+    description = (description or "").strip()
+    if "ScienceDirect" not in source_name:
+        return False
+    if len(description) >= 650:
+        return False
+    metadata_markers = ["Publication date:", "Source:", "Author(s):"]
+    return any(marker in description for marker in metadata_markers)
+
+
+def _xml_text(element: ET.Element | None) -> str:
+    if element is None:
+        return ""
+    return _clean_text(" ".join(element.itertext()))
+
+
+def _pubmed_abstract_from_xml(xml_text: str, expected_title: str) -> tuple[str, str]:
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError:
+        return "", ""
+
+    expected_norm = _normalize_title(expected_title)
+    fallback: tuple[str, str] | None = None
+    for article in root.findall(".//PubmedArticle"):
+        pmid = _xml_text(article.find(".//PMID"))
+        title = _xml_text(article.find(".//ArticleTitle"))
+        title_norm = _normalize_title(title)
+        abstract_parts = []
+        for item in article.findall(".//Abstract/AbstractText"):
+            label = str(item.get("Label") or "").strip()
+            text = _xml_text(item)
+            if text:
+                abstract_parts.append(f"{label}: {text}" if label else text)
+        abstract = "\n".join(abstract_parts).strip()
+        if not abstract:
+            continue
+        if fallback is None:
+            fallback = (pmid, abstract)
+        if expected_norm and title_norm and (expected_norm == title_norm or expected_norm in title_norm or title_norm in expected_norm):
+            return pmid, abstract
+    return fallback or ("", "")
+
+
+def _pubmed_description(existing: str, abstract: str, pmid: str) -> str:
+    parts = [existing.strip()] if existing.strip() else []
+    label = f"PubMed abstract (PMID: {pmid})" if pmid else "PubMed abstract"
+    parts.append(f"{label}:\n{abstract.strip()}")
+    return "\n\n".join(parts)
 
 
 def _entry_authors(entry: Any) -> str:
@@ -280,6 +348,168 @@ async def _get_with_fallback(
     return await direct_client.get(url, **kwargs)
 
 
+async def _pubmed_search_ids(
+    client: httpx.AsyncClient,
+    direct_client: httpx.AsyncClient,
+    pubmed_config: dict[str, Any],
+    term: str,
+) -> list[str]:
+    params = {
+        "db": "pubmed",
+        "retmode": "json",
+        "retmax": "5",
+        "term": term,
+        "tool": str(pubmed_config.get("tool") or "rss-ai-summary"),
+    }
+    api_key = str(pubmed_config.get("api_key") or "").strip()
+    email_value = str(pubmed_config.get("email") or "").strip()
+    if api_key:
+        params["api_key"] = api_key
+    if email_value:
+        params["email"] = email_value
+    response = await _get_with_fallback(
+        client,
+        direct_client,
+        f"{PUBMED_EUTILS_BASE}/esearch.fcgi",
+        params=params,
+    )
+    response.raise_for_status()
+    data = response.json()
+    return [str(value) for value in data.get("esearchresult", {}).get("idlist", []) if value]
+
+
+async def _pubmed_fetch_abstract(
+    client: httpx.AsyncClient,
+    direct_client: httpx.AsyncClient,
+    pubmed_config: dict[str, Any],
+    pmids: list[str],
+    expected_title: str,
+) -> tuple[str, str]:
+    if not pmids:
+        return "", ""
+    params = {
+        "db": "pubmed",
+        "retmode": "xml",
+        "id": ",".join(pmids[:5]),
+        "tool": str(pubmed_config.get("tool") or "rss-ai-summary"),
+    }
+    api_key = str(pubmed_config.get("api_key") or "").strip()
+    email_value = str(pubmed_config.get("email") or "").strip()
+    if api_key:
+        params["api_key"] = api_key
+    if email_value:
+        params["email"] = email_value
+    response = await _get_with_fallback(
+        client,
+        direct_client,
+        f"{PUBMED_EUTILS_BASE}/efetch.fcgi",
+        params=params,
+    )
+    response.raise_for_status()
+    return _pubmed_abstract_from_xml(response.text, expected_title)
+
+
+async def _backfill_pubmed_abstract(
+    client: httpx.AsyncClient,
+    direct_client: httpx.AsyncClient,
+    pubmed_config: dict[str, Any],
+    article: dict[str, Any],
+) -> bool:
+    if not pubmed_config:
+        return False
+    source_name = str(article.get("source_name") or "")
+    description = str(article.get("original_description") or "")
+    title = str(article.get("original_title") or "").strip()
+    if not title or not _needs_pubmed_backfill(source_name, description):
+        return False
+
+    doi = str(article.get("doi") or "").strip()
+    pii = _science_direct_pii(str(article.get("link") or ""))
+    journal = _short_source_label(source_name)
+    terms = []
+    if doi:
+        terms.append(f"{doi}[AID]")
+    if pii:
+        terms.append(f"{pii}[AID]")
+    terms.append(f'"{title}"[Title] AND "{journal}"[Journal]')
+    terms.append(f'"{title}"[Title]')
+
+    seen_terms: set[str] = set()
+    try:
+        for term in terms:
+            if term in seen_terms:
+                continue
+            seen_terms.add(term)
+            pmids = await _pubmed_search_ids(client, direct_client, pubmed_config, term)
+            pmid, abstract = await _pubmed_fetch_abstract(client, direct_client, pubmed_config, pmids, title)
+            if len(abstract) < 120:
+                continue
+            article["original_description"] = _pubmed_description(description, abstract, pmid)
+            return True
+    except Exception as exc:
+        logger.warning("PubMed backfill failed for %r: %s", title, exc)
+    return False
+
+
+async def backfill_existing_pubmed_abstracts(limit: int = 100) -> dict[str, int]:
+    storage.init_db()
+    settings.reload_config()
+    pubmed_config = settings.pubmed_config()
+    if not pubmed_config:
+        return {"candidates": 0, "checked": 0, "backfilled": 0, "skipped": 0, "errors": 0}
+
+    candidates = []
+    for row in storage.iter_article_details():
+        description = str(row["original_description"] or "")
+        if "PubMed abstract" in description:
+            continue
+        if _needs_pubmed_backfill(str(row["source_name"] or ""), description):
+            candidates.append(row)
+        if len(candidates) >= max(1, limit):
+            break
+
+    checked = 0
+    backfilled = 0
+    skipped = 0
+    errors = 0
+    timeout_seconds = float(pubmed_config.get("timeout_seconds") or 12)
+    timeout = httpx.Timeout(timeout_seconds, connect=min(8.0, timeout_seconds))
+    async with (
+        httpx.AsyncClient(headers=REQUEST_HEADERS, timeout=timeout, follow_redirects=True) as client,
+        httpx.AsyncClient(headers=REQUEST_HEADERS, timeout=timeout, follow_redirects=True, trust_env=False) as direct_client,
+    ):
+        for row in candidates:
+            checked += 1
+            article = {key: row[key] for key in row.keys()}
+            try:
+                if not await _backfill_pubmed_abstract(client, direct_client, pubmed_config, article):
+                    skipped += 1
+                    continue
+                if storage.update_article_description(int(row["article_id"]), str(article["original_description"] or "")):
+                    backfilled += 1
+                else:
+                    skipped += 1
+            except Exception as exc:
+                errors += 1
+                logger.warning("Existing PubMed backfill failed for article_id=%s: %s", row["article_id"], exc)
+
+    logger.info(
+        "Existing PubMed backfill complete: candidates=%s checked=%s backfilled=%s skipped=%s errors=%s",
+        len(candidates),
+        checked,
+        backfilled,
+        skipped,
+        errors,
+    )
+    return {
+        "candidates": len(candidates),
+        "checked": checked,
+        "backfilled": backfilled,
+        "skipped": skipped,
+        "errors": errors,
+    }
+
+
 def _iso_date(value: str, fallback: str) -> str:
     value = value.strip()
     if not value:
@@ -493,9 +723,11 @@ async def fetch_and_store(limit: int | None = None) -> dict[str, int]:
     feeds = load_feeds()
     html_sources = load_html_sources()
     biorxiv_config = load_biorxiv_config()
+    pubmed_config = settings.pubmed_config()
     added = 0
     seen = 0
     errors = 0
+    pubmed_backfilled = 0
     fetched_at = storage.now_iso()
 
     timeout = httpx.Timeout(30.0, connect=10.0)
@@ -561,6 +793,9 @@ async def fetch_and_store(limit: int | None = None) -> dict[str, int]:
                 seen += 1
                 if storage.insert_article(article):
                     added += 1
+                    if await _backfill_pubmed_abstract(client, direct_client, pubmed_config, article):
+                        storage.insert_article(article)
+                        pubmed_backfilled += 1
 
         if html_sources and (limit is None or seen < limit):
             html_added, seen, html_errors = await _fetch_html_sources(
@@ -594,5 +829,18 @@ async def fetch_and_store(limit: int | None = None) -> dict[str, int]:
         logger.info("Rules applied after fetch: %s", rule_result)
     except Exception as exc:
         logger.exception("Failed to apply rules after fetch: %s", exc)
-    logger.info("Fetch complete: added=%s seen=%s total=%s errors=%s", added, seen, total, errors)
-    return {"added": added, "seen": seen, "total": total, "errors": errors}
+    logger.info(
+        "Fetch complete: added=%s seen=%s total=%s errors=%s pubmed_backfilled=%s",
+        added,
+        seen,
+        total,
+        errors,
+        pubmed_backfilled,
+    )
+    return {
+        "added": added,
+        "seen": seen,
+        "total": total,
+        "errors": errors,
+        "pubmed_backfilled": pubmed_backfilled,
+    }

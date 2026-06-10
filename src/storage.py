@@ -37,6 +37,7 @@ def setup_logging() -> None:
             logging.StreamHandler(),
         ],
     )
+    logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
 def now_iso() -> str:
@@ -710,6 +711,38 @@ def update_summary(
                 (status, line_1, line_2, line_3, now_iso(), article_id),
             )
         conn.commit()
+
+
+def update_article_description(article_id: int, description: str) -> bool:
+    init_db()
+    clean_description = (description or "").strip()
+    if not clean_description:
+        return False
+    timestamp = now_iso()
+    with get_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT COALESCE(original_description, '') AS original_description
+            FROM articles
+            WHERE article_id = ?
+            """,
+            (article_id,),
+        ).fetchone()
+        if row is None:
+            raise KeyError(f"Article not found: {article_id}")
+        existing = str(row["original_description"] or "")
+        if len(clean_description) <= len(existing) + 80:
+            return False
+        conn.execute(
+            """
+            UPDATE articles
+            SET original_description = ?, updated_at = ?
+            WHERE article_id = ?
+            """,
+            (clean_description, timestamp, article_id),
+        )
+        conn.commit()
+    return True
 
 
 def get_stats() -> dict[str, int]:

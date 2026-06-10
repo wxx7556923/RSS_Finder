@@ -160,6 +160,15 @@ async def api_fetch(limit: int | None = Query(default=None, ge=1, le=1000)):
         raise HTTPException(status_code=500, detail="抓取 RSS 失败，请查看 logs/app.log")
 
 
+@app.post("/api/pubmed-backfill")
+async def api_pubmed_backfill(limit: int = Query(default=100, ge=1, le=500)):
+    try:
+        return JSONResponse(await rss_parser.backfill_existing_pubmed_abstracts(limit=limit))
+    except Exception as exc:
+        logger.exception("PubMed backfill API failed: %s", exc)
+        raise HTTPException(status_code=500, detail="PubMed 补摘要失败，请查看 logs/app.log")
+
+
 @app.post("/api/sync")
 async def api_sync(limit: int | None = Query(default=None, ge=1, le=1000)):
     try:

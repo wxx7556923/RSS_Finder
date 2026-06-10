@@ -40,6 +40,15 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "group_id": "",
         "collection_key": "",
     },
+    "pubmed": {
+        "enabled": True,
+        "api_key_env": "NCBI_API_KEY",
+        "email_env": "NCBI_EMAIL",
+        "api_key": "",
+        "email": "",
+        "tool": "rss-ai-summary",
+        "timeout_seconds": 12,
+    },
     "output_rss": {
         "title": "AI 中文摘要",
         "link": "http://localhost:8090/feed.xml",
@@ -92,6 +101,15 @@ def get_config() -> dict[str, Any]:
         env_value = os.getenv(env_name, "").strip()
         if env_value:
             zotero[key] = env_value
+    pubmed = config.setdefault("pubmed", {})
+    for key, default_env in [
+        ("api_key", "NCBI_API_KEY"),
+        ("email", "NCBI_EMAIL"),
+    ]:
+        env_name = str(pubmed.get(f"{key}_env") or default_env)
+        env_value = os.getenv(env_name, "").strip()
+        if env_value:
+            pubmed[key] = env_value
     return config
 
 
@@ -146,6 +164,13 @@ def html_sources() -> list[dict[str, Any]]:
 def biorxiv_config() -> dict[str, Any]:
     config = section("biorxiv_api")
     if not config.get("enabled"):
+        return {}
+    return config
+
+
+def pubmed_config() -> dict[str, Any]:
+    config = section("pubmed")
+    if config.get("enabled") is False:
         return {}
     return config
 
