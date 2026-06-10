@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 
@@ -43,7 +44,17 @@ def _write_env(values: dict[str, str]) -> None:
     for key, value in values.items():
         if key not in seen:
             lines.append(f"{key}={value}")
-    ENV_PATH.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+    try:
+        ENV_PATH.write_text("\n".join(lines).rstrip() + "\n", encoding="utf-8")
+    except PermissionError as exc:
+        print("", file=sys.stderr)
+        print(f"Cannot save .env file: {ENV_PATH}", file=sys.stderr)
+        print(
+            "This folder is not writable. Move the extracted PaperRadar folder to Desktop, Downloads, or C:\\PaperRadar, then run Windows-Install.bat again.",
+            file=sys.stderr,
+        )
+        print("Do not run it from WeChat/QQ file cache or a zip preview window.", file=sys.stderr)
+        raise SystemExit(1) from exc
 
 
 def main() -> None:

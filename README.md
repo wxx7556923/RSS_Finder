@@ -174,7 +174,7 @@ Windows-Install.bat
 Windows-Start.bat
 ```
 
-Windows 脚本会通过 WSL Ubuntu 启动本地 Web 控制台。
+Windows 脚本会使用 Windows Python 创建虚拟环境并启动本地 Web 控制台，不需要 WSL/Ubuntu。
 
 ## 日常使用
 

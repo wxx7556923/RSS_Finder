@@ -1,6 +1,15 @@
 @echo off
 setlocal
-set "ROOT=%~dp0.."
+cd /d "%~dp0.."
 
-wsl.exe bash -lc "cd \"$(wslpath '%ROOT%')\" && if [ ! -x .venv/bin/python ]; then bash install.sh; fi && .venv/bin/python tools/configure_env.py"
+if not exist ".venv\Scripts\python.exe" (
+  echo Paper Radar is not installed yet.
+  echo Run Windows-Install.bat first.
+  echo.
+  pause
+  exit /b 1
+)
+
+".venv\Scripts\python.exe" tools\configure_env.py
+echo.
 pause

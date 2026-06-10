@@ -1,28 +1,37 @@
 Paper Radar Windows 新手版
 
-只记住一句话：
-每完成一个阶段后，都回到这个文件夹，再双击 Windows-Install.bat，直到它提示安装完成。
+这版不使用 WSL，不需要 Ubuntu。
 
 第一次使用：
 
 1. 先完整解压 zip，不要在压缩包预览窗口里运行。
-2. 双击 Windows-Install.bat。
-3. 如果提示安装 WSL Ubuntu，按提示输入 Y。
-4. 如果 Windows 要求重启，就重启。
-5. 重启后回到这个文件夹，再双击 Windows-Install.bat。
-6. 如果弹出 Ubuntu 黑窗口，按提示创建用户名和密码。
-   密码输入时屏幕不会显示，这是正常的。
-7. Ubuntu 设置完成后，回到这个文件夹，再双击 Windows-Install.bat。
-8. 看到“安装完成”后，以后每天只需要双击 Windows-Start.bat。
+   如果文件来自微信/QQ，不要直接在聊天文件目录里运行；请把解压后的 PaperRadar 文件夹复制到桌面、下载目录或 C:\PaperRadar。
+2. 如果电脑已经有 Python 3.10 或更新版本：
+   直接双击 Windows-Install.bat。
+3. 如果电脑没有 Python，先安装 Python 3.10 或更新版本：
+   https://www.python.org/downloads/windows/
+4. 安装 Python 时请勾选：
+   Add python.exe to PATH
+5. 回到这个文件夹，双击：
+   Windows-Install.bat
+6. 安装过程中如果询问订阅源/API Key：
+   不懂就直接回车跳过。
+7. 看到 Install complete 后，以后每天只需要双击：
+   Windows-Start.bat
+
+如果包里有 wheels 目录，安装依赖时会优先离线安装，不需要连接 PyPI。
+如果包里没有 wheels 目录，才会使用清华 PyPI 镜像，并会忽略用户 pip 配置里的代理。
+如果仍然下载失败，通常是代理/VPN/校园网/公司网络问题，可以换网络，或向维护者索要带 wheels 的安装包。
 
 日常使用：
 
 - 启动：Windows-Start.bat
 - 停止：Windows-Stop.bat
 - 看日志：Windows-Logs.bat
+- 看状态：Windows-Status.bat
 
 API Key：
 
-- 不懂就直接回车跳过。
 - 原文模式不需要 DeepSeek。
 - NCBI/PubMed API Key 不填也能抓 RSS，只是补摘要能力弱一点。
+- 这些 key 都保存在你自己的 .env 文件里，不会使用维护者的 key。

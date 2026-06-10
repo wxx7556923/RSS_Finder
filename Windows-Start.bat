@@ -1,23 +1,23 @@
 @echo off
 setlocal
-set "SCRIPT=%~dp0windows\start.bat"
+cd /d "%~dp0"
 
-if not exist "%SCRIPT%" (
-  echo Missing windows\start.bat.
-  echo.
-  echo Please fully extract the zip file first.
-  echo Do not run this file from the zip preview window.
-  echo Right-click the zip, choose Extract All, then open the extracted PaperRadar folder.
+if not exist ".venv\Scripts\python.exe" (
+  echo Paper Radar is not installed yet.
+  echo Run Windows-Install.bat first.
   echo.
   pause
   exit /b 1
 )
 
-call "%SCRIPT%"
-set "RC=%ERRORLEVEL%"
-if not "%RC%"=="0" (
+".venv\Scripts\python.exe" tools\windows_server.py start
+if errorlevel 1 (
   echo.
-  echo Startup did not finish. Run Windows-Install.bat first, or follow the message above.
+  echo Startup failed. Run Windows-Logs.bat and send a screenshot if needed.
+  echo.
   pause
+  exit /b 1
 )
-exit /b %RC%
+
+start "" http://127.0.0.1:8090/?mode=original
+exit /b 0

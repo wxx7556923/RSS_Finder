@@ -1,16 +1,12 @@
 @echo off
 setlocal
-set "SCRIPT=%~dp0windows\logs.bat"
+cd /d "%~dp0"
 
-if not exist "%SCRIPT%" (
-  echo Missing windows\logs.bat.
-  echo.
-  echo Please fully extract the zip file first.
-  echo Do not run this file from the zip preview window.
-  echo.
-  pause
-  exit /b 1
+if exist ".venv\Scripts\python.exe" (
+  ".venv\Scripts\python.exe" tools\windows_server.py logs
+) else (
+  if exist "logs\web.log" type "logs\web.log"
+  if not exist "logs\web.log" echo No log file found.
 )
-
-call "%SCRIPT%"
-exit /b %ERRORLEVEL%
+echo.
+pause

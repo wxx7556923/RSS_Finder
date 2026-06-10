@@ -50,7 +50,7 @@
 - Nature Plants
   - RSS: `https://www.nature.com/nplants.rss`
 - Molecular Plant
-  - RSS: `https://rss.sciencedirect.com/publication/science/16738527`
+  - RSS: `https://rss.sciencedirect.com/publication/science/16742052`
 - Plant Communications
   - RSS: `https://rss.sciencedirect.com/publication/science/25903462`
 - The Plant Cell
@@ -99,4 +99,6 @@
 - 官网兜底抓取源写在 `config/app.yml` 的 `html_sources:` 下。
 - bioRxiv 分类写在 `config/app.yml` 的 `biorxiv_api.categories:` 下。
 - Windows 安装向导读取 `config/app.yml`，所以新增或删除订阅源后，用户安装时会自动看到新的编号列表。
+- 新增或替换 RSS 后，先运行 `python tools/check_sources.py --contains sciencedirect.com` 或 `python tools/check_sources.py`，确认配置名和远程 feed 标题一致。
+- 如果本地显示名和远程 feed 标题天然不同，可以在对应 `feeds:` 项下加 `expected_title:`，只用于 `tools/check_sources.py` 校验，不影响抓取。
 - ScienceDirect / Cell Press RSS 通常只给标题、作者和出版信息；系统会用 PubMed 尽力补摘要，查不到就保留原始元信息。

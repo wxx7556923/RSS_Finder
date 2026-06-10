@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -46,8 +47,18 @@ def _load_config() -> dict[str, Any]:
 
 
 def _save_config(config: dict[str, Any]) -> None:
-    with CONFIG_PATH.open("w", encoding="utf-8") as handle:
-        yaml.safe_dump(config, handle, allow_unicode=True, sort_keys=False, width=120)
+    try:
+        with CONFIG_PATH.open("w", encoding="utf-8") as handle:
+            yaml.safe_dump(config, handle, allow_unicode=True, sort_keys=False, width=120)
+    except PermissionError as exc:
+        print("", file=sys.stderr)
+        print(f"Cannot save config file: {CONFIG_PATH}", file=sys.stderr)
+        print(
+            "This folder is not writable. Move the extracted PaperRadar folder to Desktop, Downloads, or C:\\PaperRadar, then run Windows-Install.bat again.",
+            file=sys.stderr,
+        )
+        print("Do not run it from WeChat/QQ file cache or a zip preview window.", file=sys.stderr)
+        raise SystemExit(1) from exc
 
 
 def main() -> None:
