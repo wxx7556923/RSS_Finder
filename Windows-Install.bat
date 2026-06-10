@@ -1,29 +1,30 @@
 @echo off
 setlocal
-chcp 65001 >nul
 set "SCRIPT=%~dp0windows\install.bat"
 
 if not exist "%SCRIPT%" (
-  echo 没有找到 windows\install.bat。
+  echo Missing windows\install.bat.
   echo.
-  echo 请先完整解压 zip 文件，不要在压缩包预览窗口里直接双击。
-  echo 建议右键 zip，选择“全部解压”，然后进入解压后的 PaperRadar 文件夹。
+  echo Please fully extract the zip file first.
+  echo Do not run this file from the zip preview window.
+  echo Right-click the zip, choose Extract All, then open the extracted PaperRadar folder.
   echo.
   pause
   exit /b 1
 )
 
-echo 正在启动安装向导...
+echo Starting Paper Radar installer...
 echo.
 call "%SCRIPT%"
 set "RC=%ERRORLEVEL%"
 echo.
 if not "%RC%"=="0" (
   echo.
-  echo 安装向导已暂停或未完成。请按窗口提示处理后，再双击 Windows-Install.bat。
-  echo 如果你不知道发生了什么，请把这个窗口截图发给维护者。
+  echo The installer stopped or did not finish.
+  echo Follow the message above, then run Windows-Install.bat again.
+  echo If you are unsure, send a screenshot of this window to the maintainer.
 ) else (
-  echo 安装向导已结束。如果上面显示“安装完成”，以后双击 Windows-Start.bat。
+  echo Installer finished. If it says install complete above, use Windows-Start.bat next time.
 )
 echo.
 pause

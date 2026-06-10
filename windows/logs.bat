@@ -4,14 +4,14 @@ set "ROOT=%~dp0.."
 
 where wsl.exe >nul 2>nul
 if errorlevel 1 (
-  echo 未检测到 WSL。请先运行 Windows-Install.bat。
+  echo WSL was not detected. Run Windows-Install.bat first.
   pause
   exit /b 1
 )
 
 wsl.exe bash -lc "echo WSL_READY" >nul 2>nul
 if errorlevel 1 (
-  echo Ubuntu 还没有初始化完成。请重启电脑，并先打开一次 Ubuntu 完成用户名和密码设置。
+  echo Ubuntu is not initialized yet. Restart Windows, open Ubuntu once, and create a username and password.
   pause
   exit /b 1
 )
