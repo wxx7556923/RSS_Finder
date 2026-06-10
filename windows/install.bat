@@ -5,8 +5,8 @@ set "ROOT=%~dp0.."
 echo.
 echo Paper Radar Windows 安装向导
 echo.
-echo 只需要记住：如果中途重启、弹出 Ubuntu、或者设置完用户名密码，
-echo 都回到这个文件夹，再双击 Windows-Install.bat 继续。
+echo 只需要记住：每完成一个阶段后，都回到这个文件夹，
+echo 再双击 Windows-Install.bat 继续，直到提示安装完成。
 echo.
 
 where wsl.exe >nul 2>nul

@@ -1,7 +1,7 @@
 Paper Radar Windows 新手版
 
 只记住一句话：
-解压后一直双击 Windows-Install.bat，直到它提示安装完成。
+每完成一个阶段后，都回到这个文件夹，再双击 Windows-Install.bat，直到它提示安装完成。
 
 第一次使用：
 
