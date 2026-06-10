@@ -1,6 +1,6 @@
 # Paper Radar Windows 新手使用说明
 
-这个包适合不熟悉 Linux 的同学使用。你只需要安装 WSL Ubuntu，然后双击 `windows` 目录里的 `.bat` 文件。
+这个包适合不熟悉 Linux 的同学使用。你只需要安装 WSL Ubuntu，然后双击解压目录最外层的 `Windows-Install.bat` / `Windows-Start.bat`。
 
 ## 先安装 WSL Ubuntu
 
@@ -19,7 +19,7 @@ wsl --install -d Ubuntu
 解压这个 zip 后，双击：
 
 ```text
-windows\install.bat
+Windows-Install.bat
 ```
 
 安装脚本会做这些事：
@@ -36,7 +36,7 @@ windows\install.bat
 双击：
 
 ```text
-windows\start.bat
+Windows-Start.bat
 ```
 
 浏览器会打开：
@@ -50,9 +50,9 @@ http://localhost:8090/?mode=original
 ## 停止、查看状态和日志
 
 ```text
+Windows-Stop.bat     停止服务
+Windows-Logs.bat     查看最近日志
 windows\status.bat   查看是否运行
-windows\stop.bat     停止服务
-windows\logs.bat     查看最近日志
 windows\open.bat     只打开浏览器页面
 ```
 
@@ -90,7 +90,7 @@ windows\config-env.bat
 
 ## 日常使用
 
-1. 双击 `windows\start.bat`。
+1. 双击 `Windows-Start.bat`。
 2. 浏览器打开后点击 `抓取新文章`。
 3. 看到感兴趣的文章，点击 `打开原文`。
 4. 回到控制台写笔记、加标签、收藏或标为待读。
@@ -104,13 +104,13 @@ windows\config-env.bat
 
 ## 常见问题
 
-### 双击 start.bat 后打不开
+### 双击 Windows-Start.bat 后打不开
 
 先双击：
 
 ```text
 windows\status.bat
-windows\logs.bat
+Windows-Logs.bat
 ```
 
 如果提示 WSL 不存在，需要先安装 WSL Ubuntu。
@@ -120,13 +120,13 @@ windows\logs.bat
 先双击：
 
 ```text
-windows\stop.bat
+Windows-Stop.bat
 ```
 
 然后再双击：
 
 ```text
-windows\start.bat
+Windows-Start.bat
 ```
 
 ### ScienceDirect 文章没有摘要

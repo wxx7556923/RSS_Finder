@@ -170,8 +170,8 @@ README-Windows.md
 日常只需要双击：
 
 ```text
-windows\install.bat
-windows\start.bat
+Windows-Install.bat
+Windows-Start.bat
 ```
 
 Windows 脚本会通过 WSL Ubuntu 启动本地 Web 控制台。
