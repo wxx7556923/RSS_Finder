@@ -1,28 +1,34 @@
 # Paper Radar Windows 新手使用说明
 
-这个包适合不熟悉 Linux 的同学使用。你只需要安装 WSL Ubuntu，然后双击解压目录最外层的 `Windows-Install.bat` / `Windows-Start.bat`。
+这个包适合不熟悉 Linux 的同学使用。最简单的规则是：第一次使用一直双击解压目录最外层的 `Windows-Install.bat`，直到它提示安装完成。
 
-## 先安装 WSL Ubuntu
+如果不想看长说明，先打开：
 
-如果电脑已经有 WSL Ubuntu，可以跳过这一步。
-
-在 Windows 开始菜单里搜索 `PowerShell`，右键“以管理员身份运行”，输入：
-
-```powershell
-wsl --install -d Ubuntu
+```text
+00-START-HERE-Windows.txt
 ```
 
-安装完成后重启电脑，第一次打开 Ubuntu 时按提示创建用户名和密码。
-
-注意：刚安装完 WSL 后，不要直接启动 Paper Radar。请先完成这三步：
-
-1. 重启 Windows。
-2. 从开始菜单打开一次 `Ubuntu`。
-3. 按提示创建 Ubuntu 用户名和密码，看到 Ubuntu 命令行后再关闭窗口。
-
-## 第一次安装 Paper Radar
+## 第一次安装
 
 解压这个 zip 后，双击：
+
+```text
+Windows-Install.bat
+```
+
+然后按窗口提示走。
+
+如果它提示安装 WSL Ubuntu，输入 `Y`。如果 Windows 要求重启，就重启。
+
+重启后不要找别的文件，还是回到这个文件夹，继续双击：
+
+```text
+Windows-Install.bat
+```
+
+如果它弹出 Ubuntu 窗口，请创建 Ubuntu 用户名和密码。密码输入时屏幕不会显示字符，这是正常的。
+
+Ubuntu 设置完成后，再回到这个文件夹，继续双击：
 
 ```text
 Windows-Install.bat

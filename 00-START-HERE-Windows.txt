@@ -1,0 +1,28 @@
+Paper Radar Windows 新手版
+
+只记住一句话：
+解压后一直双击 Windows-Install.bat，直到它提示安装完成。
+
+第一次使用：
+
+1. 先完整解压 zip，不要在压缩包预览窗口里运行。
+2. 双击 Windows-Install.bat。
+3. 如果提示安装 WSL Ubuntu，按提示输入 Y。
+4. 如果 Windows 要求重启，就重启。
+5. 重启后回到这个文件夹，再双击 Windows-Install.bat。
+6. 如果弹出 Ubuntu 黑窗口，按提示创建用户名和密码。
+   密码输入时屏幕不会显示，这是正常的。
+7. Ubuntu 设置完成后，回到这个文件夹，再双击 Windows-Install.bat。
+8. 看到“安装完成”后，以后每天只需要双击 Windows-Start.bat。
+
+日常使用：
+
+- 启动：Windows-Start.bat
+- 停止：Windows-Stop.bat
+- 看日志：Windows-Logs.bat
+
+API Key：
+
+- 不懂就直接回车跳过。
+- 原文模式不需要 DeepSeek。
+- NCBI/PubMed API Key 不填也能抓 RSS，只是补摘要能力弱一点。
