@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>设置</title>
+    <link rel="stylesheet" href="/static/style.css?v=20260612-settings-help">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <h1>设置</h1>
+          <p class="feed-link">配置 API、抓取源和相关性筛选策略。</p>
+          <nav class="mode-switch" aria-label="导航">
+            <a href="/?mode=original">原文模式</a>
+            <a href="/?mode=ds">DS 模式</a>
+            <a href="/sources">源健康</a>
+            <a href="/database">数据库</a>
+            <a href="/tags">标签</a>
+            <a href="/digest">周报</a>
+            <a class="active" href="/settings">设置</a>
+          </nav>
+        </div>
+      </header>
+
+      {% if saved %}
+      <div class="notice">设置已保存。</div>
+      {% endif %}
+
+      <form class="settings-form" method="post" action="/settings">
+        <section class="panel">
+          <details class="usage-guide">
+            <summary>
+              <span>使用说明</span>
+              <em>展开查看</em>
+            </summary>
+            <div class="usage-guide-grid">
+              <div>
+                <h3>日常流程</h3>
+                <p>先在本页配置 DeepSeek API Key 和 RSS 关注源，然后回到首页点击“一键同步”。系统会抓取新文章、应用规则、翻译标题，并在开启自动分类时进行相关性判断。</p>
+              </div>
+              <div>
+                <h3>相关性分类</h3>
+                <p>在“研究方向”里写清楚关注对象、方法、保留例外和不关注内容。系统会缓存文章语义和方向语义；以后改描述时优先本地重算，只有不确定文章再调用 DeepSeek。</p>
+              </div>
+              <div>
+                <h3>RSS 关注源</h3>
+                <p>只勾选真正想追踪的期刊或平台。默认关闭的源通常是访问不稳定、可能 403/404、或只适合特定方向的补充源。</p>
+              </div>
+              <div>
+                <h3>结果处理</h3>
+                <p>强相关会排在前面，弱相关靠后，不相关会被标记为已过滤。已过滤文章不会删除，可在状态筛选里选择“已过滤”重新查看。</p>
+              </div>
+            </div>
+          </details>
+        </section>
+
+        <section class="panel">
+          <h2>API 配置</h2>
+          <div class="settings-grid">
+            <label>
+              <span>DeepSeek API Key {% if deepseek_configured %}<em>已配置</em>{% else %}<em>未配置</em>{% endif %}</span>
+              <input type="password" name="deepseek_api_key" placeholder="留空则不修改">
+            </label>
+            <label>
+              <span>DeepSeek Base URL</span>
+              <input value="{{ deepseek_base_url }}" disabled>
+            </label>
+            <label>
+              <span>DeepSeek 模型</span>
+              <input value="{{ deepseek_model }}" disabled>
+            </label>
+            <label>
+              <span>PubMed / NCBI API Key {% if pubmed_configured %}<em>已配置</em>{% else %}<em>未配置</em>{% endif %}</span>
+              <input type="password" name="ncbi_api_key" placeholder="留空则不修改">
+            </label>
+            <label>
+              <span>NCBI Email</span>
+              <input name="ncbi_email" value="{{ pubmed_email }}" placeholder="name@example.com">
+            </label>
+            <label class="check-filter settings-check">
+              <input type="checkbox" name="biorxiv_enabled" value="1" {% if biorxiv_enabled %}checked{% endif %}>
+              <span>启用 bioRxiv API 抓取</span>
+            </label>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>RSS 关注源</h2>
+          <p class="panel-hint">按出版平台折叠管理。选中的源会参与“抓取新文章”和“一键同步”，未选中的源不会抓取。</p>
+          <div class="source-preferences">
+            {% for group in rss_source_groups %}
+            <details class="source-pref-group">
+              <summary>
+                <span>{{ group.name }}</span>
+                <em>{{ group.enabled_count }} / {{ group.total }} 已关注</em>
+              </summary>
+              <div class="source-pref-grid">
+                {% for source in group.sources %}
+                <label class="source-pref-item {% if source.enabled %}source-pref-active{% endif %}">
+                  <input type="checkbox" name="rss_sources" value="{{ source.name }}" {% if source.enabled %}checked{% endif %}>
+                  <span>
+                    <strong>{{ source.name }}</strong>
+                    <small>
+                      {{ source.host }}
+                      {% if source.tags %}
+                        · {{ source.tags|join(" / ") }}
+                      {% endif %}
+                      {% if not source.configured_enabled %}
+                        · 默认关闭
+                      {% endif %}
+                    </small>
+                  </span>
+                </label>
+                {% endfor %}
+              </div>
+            </details>
+            {% endfor %}
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Zotero</h2>
+          <div class="settings-grid">
+            <label>
+              <span>Zotero API Key {% if zotero_configured %}<em>已配置</em>{% else %}<em>未配置</em>{% endif %}</span>
+              <input type="password" name="zotero_api_key" placeholder="留空则不修改">
+            </label>
+            <label>
+              <span>Zotero User ID</span>
+              <input name="zotero_user_id" value="{{ zotero_user_id }}">
+            </label>
+            <label>
+              <span>Zotero Group ID</span>
+              <input name="zotero_group_id" value="{{ zotero_group_id }}">
+            </label>
+            <label>
+              <span>Zotero Collection Key</span>
+              <input name="zotero_collection_key" value="{{ zotero_collection_key }}">
+            </label>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>相关性筛选</h2>
+          <p class="panel-hint">系统会先缓存文章语义，再按当前研究方向本地打分；本地无法确定的文章才交给 DeepSeek 判断。</p>
+          <div class="settings-grid settings-grid-wide">
+            <label class="settings-full">
+              <span>研究方向</span>
+              <textarea name="relevance_profile" rows="5" placeholder="描述你的研究方向、保留例外和不关注内容。">{{ relevance_profile }}</textarea>
+            </label>
+            <label class="check-filter settings-check">
+              <input type="checkbox" name="relevance_auto_enabled" value="1" {% if relevance_auto_enabled %}checked{% endif %}>
+              <span>一键同步后自动做相关性分类</span>
+            </label>
+            <label>
+              <span>默认分类依据</span>
+              <select name="relevance_mode">
+                <option value="title" {% if relevance_mode == "title" %}selected{% endif %}>仅标题</option>
+                <option value="title_abstract" {% if relevance_mode == "title_abstract" %}selected{% endif %}>标题 + 摘要</option>
+              </select>
+            </label>
+            <label>
+              <span>默认处理范围</span>
+              <select name="relevance_scope">
+                <option value="new_only" {% if relevance_scope == "new_only" %}selected{% endif %}>只处理新收取且未判断的文章</option>
+                <option value="unread_pending" {% if relevance_scope == "unread_pending" %}selected{% endif %}>处理未读/已打开/待读且当前方向未判断的文章</option>
+              </select>
+            </label>
+            <label>
+              <span>默认最多处理</span>
+              <input type="number" name="relevance_limit" min="1" max="1000" value="{{ relevance_limit }}">
+            </label>
+          </div>
+        </section>
+
+        <div class="settings-actions">
+          <button type="submit">保存设置</button>
+          <a class="button-link" href="/?mode=original">返回首页</a>
+        </div>
+      </form>
+    </main>
+  </body>
+</html>

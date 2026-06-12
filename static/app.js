@@ -8,6 +8,23 @@ function showNotice(message, type = "info") {
   notice.hidden = false;
 }
 
+function reloadWithNotice(message, type = "info") {
+  sessionStorage.setItem("paperRadarNotice", JSON.stringify({ message, type }));
+  window.location.reload();
+}
+
+function showPendingNotice() {
+  const raw = sessionStorage.getItem("paperRadarNotice");
+  if (!raw) return;
+  sessionStorage.removeItem("paperRadarNotice");
+  try {
+    const data = JSON.parse(raw);
+    if (data?.message) showNotice(data.message, data.type || "info");
+  } catch (error) {
+    showNotice(raw);
+  }
+}
+
 function setLoading(element, loading, text) {
   if (!element) return;
   if (loading) {
@@ -156,6 +173,34 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+function compactTagRows() {
+  for (const row of document.querySelectorAll(".tag-row")) {
+    if (row.dataset.compacted === "1") continue;
+    const tags = [...row.querySelectorAll("a, span")].filter((item) => !item.classList.contains("tag-overflow-toggle"));
+    if (tags.length <= 3) continue;
+
+    const hiddenTags = tags.slice(3);
+    for (const tag of hiddenTags) tag.hidden = true;
+
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "tag-overflow-toggle";
+    toggle.textContent = `+${hiddenTags.length}`;
+    toggle.setAttribute("aria-expanded", "false");
+    toggle.addEventListener("click", () => {
+      const expanded = toggle.getAttribute("aria-expanded") === "true";
+      for (const tag of hiddenTags) tag.hidden = expanded;
+      toggle.setAttribute("aria-expanded", expanded ? "false" : "true");
+      toggle.textContent = expanded ? `+${hiddenTags.length}` : "收起";
+    });
+    row.appendChild(toggle);
+    row.dataset.compacted = "1";
+  }
+}
+
+showPendingNotice();
+compactTagRows();
+
 document.addEventListener("click", async (event) => {
   const originalLink = event.target.closest("[data-open-original]");
   if (originalLink) {
@@ -180,10 +225,13 @@ document.addEventListener("click", async (event) => {
       setLoading(target, true, "同步中...");
       const data = await postJson("/api/sync");
       const translate = data.translate || {};
-      showNotice(
-        `同步完成：新增 ${data.fetch?.added || 0} 篇，PubMed 补摘要 ${data.fetch?.pubmed_backfilled || 0} 篇，规则标记 ${data.rules?.tagged || 0} 篇，标题翻译 ${translate.success || 0} 篇。`
+      const relevance = data.relevance || {};
+      const relevanceText = relevance.skipped
+        ? ""
+        : `，相关性已判断 ${relevance.checked || 0} 篇（本地 ${relevance.local_checked || 0}，DeepSeek ${relevance.deepseek_checked || 0}），语义缓存 ${relevance.semantic_cached || 0} 篇，已隐藏 ${relevance.irrelevant || 0} 篇`;
+      reloadWithNotice(
+        `同步完成：新增 ${data.fetch?.added || 0} 篇，PubMed 补摘要 ${data.fetch?.pubmed_backfilled || 0} 篇，规则标记 ${data.rules?.tagged || 0} 篇，标题翻译 ${translate.success || 0} 篇${relevanceText}。`
       );
-      window.location.reload();
     }
 
     if (action === "fetch") {
@@ -214,6 +262,21 @@ document.addEventListener("click", async (event) => {
       const data = await postJson("/api/translate-titles");
       showNotice(`标题翻译完成：成功 ${data.success} 篇，失败 ${data.failed} 篇。`);
       window.location.reload();
+    }
+
+    if (action === "classify-relevance") {
+      const profile = document.querySelector("#relevance-profile")?.value || "";
+      const limitValue = Number(document.querySelector("#relevance-limit")?.value || 100);
+      const mode = target.dataset.mode || "title";
+      setLoading(target, true, mode === "title_abstract" ? "读摘要判断..." : "按标题判断...");
+      const data = await postJson("/api/relevance-classify", {
+        profile,
+        mode,
+        limit: Number.isFinite(limitValue) ? limitValue : 100,
+      });
+      reloadWithNotice(
+        `相关性判断完成：已判断 ${data.checked || 0} 篇（本地 ${data.local_checked || 0}，DeepSeek ${data.deepseek_checked || 0}），语义缓存 ${data.semantic_cached || 0} 篇，强相关 ${data.strong || 0} 篇，弱相关 ${data.weak || 0} 篇，待确认 ${data.uncertain || 0} 篇，已隐藏 ${data.irrelevant || 0} 篇，失败 ${data.failed || 0} 篇。`
+      );
     }
 
     if (action === "build-feed") {

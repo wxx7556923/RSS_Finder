@@ -1,241 +1,320 @@
 app:
-  title: "Paper Radar"
-  default_mode: "original"
+  title: Paper Radar
+  default_mode: original
   page_limit: 2000
-
 deepseek:
-  api_key_env: "DEEPSEEK_API_KEY"
-  api_key: ""
-  base_url: "https://api.deepseek.com"
-  model: "deepseek-chat"
+  api_key_env: DEEPSEEK_API_KEY
+  api_key: ''
+  base_url: https://api.deepseek.com
+  model: deepseek-chat
   max_retries: 3
   title_timeout_seconds: 30
   summary_timeout_seconds: 60
   title_translate_concurrency: 3
-
 output_rss:
-  title: "Paper Radar Feed"
-  link: "http://localhost:8090/feed.xml"
-  description: "RSS feed with translated titles and source descriptions"
-  original_title: "Paper Radar Original Feed"
-  original_description: "Original titles and descriptions without AI processing"
-
+  title: Paper Radar Feed
+  link: http://localhost:8090/feed.xml
+  description: RSS feed with translated titles and source descriptions
+  original_title: Paper Radar Original Feed
+  original_description: Original titles and descriptions without AI processing
 html_sources:
-  - name: "Nature"
-    url: "https://www.nature.com/nature/articles?type=article"
-    parser: "nature_articles"
-    pages: 2
-  - name: "Nature Genetics"
-    url: "https://www.nature.com/ng/articles?type=article"
-    parser: "nature_articles"
-    pages: 2
-  - name: "Nature Communications"
-    url: "https://www.nature.com/ncomms/articles?type=article"
-    parser: "nature_articles"
-    pages: 2
-  - name: "Nature Plants"
-    url: "https://www.nature.com/nplants/articles?type=article"
-    parser: "nature_articles"
-    pages: 2
-  - name: "Nature Machine Intelligence"
-    url: "https://www.nature.com/natmachintell/articles?type=article"
-    parser: "nature_articles"
-    pages: 2
-  - name: "Nature Computational Science"
-    url: "https://www.nature.com/natcomputsci/articles?type=article"
-    parser: "nature_articles"
-    pages: 2
-  - name: "Nature Reviews Genetics"
-    url: "https://www.nature.com/nrg/articles"
-    parser: "nature_articles"
-    pages: 2
-  - name: "Nature Methods"
-    url: "https://www.nature.com/nmeth/articles?type=article"
-    parser: "nature_articles"
-    pages: 2
-  - name: "Nature Biotechnology"
-    url: "https://www.nature.com/nbt/articles?type=article"
-    parser: "nature_articles"
-    pages: 2
-  - name: "Genome Biology (Springer)"
-    url: "https://link.springer.com/journal/13059/articles"
-    parser: "springer_articles"
-    pages: 1
-  - name: "Genome Research - GR-in-Advance (CSHL Press)"
-    url: "https://genome.cshlp.org/content/early/recent"
-    parser: "cshl_early_articles"
-    pages: 1
-
-# Default starter set for plant biology, genomics, AI/ML, and broad science journals.
-# Delete sources you do not need, or add more sources under this list.
-# Source notes for normal users and maintainers: docs/SOURCES.md.
+- name: Nature
+  url: https://www.nature.com/nature/articles?type=article
+  parser: nature_articles
+  pages: 2
+- name: Nature Genetics
+  url: https://www.nature.com/ng/articles?type=article
+  parser: nature_articles
+  pages: 2
+- name: Nature Communications
+  url: https://www.nature.com/ncomms/articles?type=article
+  parser: nature_articles
+  pages: 2
+- name: Nature Plants
+  url: https://www.nature.com/nplants/articles?type=article
+  parser: nature_articles
+  pages: 2
+- name: Nature Machine Intelligence
+  url: https://www.nature.com/natmachintell/articles?type=article
+  parser: nature_articles
+  pages: 2
+- name: Nature Computational Science
+  url: https://www.nature.com/natcomputsci/articles?type=article
+  parser: nature_articles
+  pages: 2
+- name: Nature Reviews Genetics
+  url: https://www.nature.com/nrg/articles
+  parser: nature_articles
+  pages: 2
+- name: Nature Methods
+  url: https://www.nature.com/nmeth/articles?type=article
+  parser: nature_articles
+  pages: 2
+- name: Nature Biotechnology
+  url: https://www.nature.com/nbt/articles?type=article
+  parser: nature_articles
+  pages: 2
+- name: Genome Biology (Springer)
+  url: https://link.springer.com/journal/13059/articles
+  parser: springer_articles
+  pages: 1
+- name: Genome Research - GR-in-Advance (CSHL Press)
+  url: https://genome.cshlp.org/content/early/recent
+  parser: cshl_early_articles
+  pages: 1
 feeds:
-  - name: "Nature"
-    url: "https://www.nature.com/nature.rss"
-  - name: "Nature Genetics"
-    url: "https://www.nature.com/ng.rss"
-  - name: "Nature Communications"
-    url: "https://www.nature.com/ncomms.rss"
-  - name: "Nature Plants"
-    url: "https://www.nature.com/nplants.rss"
-  - name: "Nature Microbiology"
-    url: "https://www.nature.com/nmicrobiol.rss"
-  - name: "Nature Reviews Microbiology"
-    url: "https://www.nature.com/nrmicro.rss"
-  - name: "Nature Immunology"
-    url: "https://www.nature.com/ni.rss"
-  - name: "Nature Reviews Immunology"
-    url: "https://www.nature.com/nri.rss"
-  - name: "ISME Communications"
-    url: "https://www.nature.com/ismecomms.rss"
-  - name: "Nature Machine Intelligence"
-    url: "https://www.nature.com/natmachintell.rss"
-  - name: "Nature Computational Science"
-    url: "https://www.nature.com/natcomputsci.rss"
-  - name: "Nature Reviews Genetics"
-    url: "https://www.nature.com/nrg.rss"
-  - name: "Nature Methods"
-    url: "https://www.nature.com/nmeth.rss"
-  - name: "Nature Biotechnology"
-    url: "https://www.nature.com/nbt.rss"
-  - name: "Science"
-    url: "https://www.science.org/action/showFeed?type=etoc&feed=rss&jc=science"
-  - name: "Science Advances"
-    url: "https://www.science.org/action/showFeed?type=etoc&feed=rss&jc=sciadv"
-  - name: "Cell (ScienceDirect Feed)"
-    url: "https://rss.sciencedirect.com/publication/science/00928674"
-  - name: "Cell Host & Microbe (ScienceDirect Feed)"
-    url: "https://rss.sciencedirect.com/publication/science/19313128"
-  - name: "Immunity (ScienceDirect Feed)"
-    url: "https://rss.sciencedirect.com/publication/science/10747613"
-  - name: "Cell Systems (Cell Press Feed)"
-    url: "https://www.cell.com/action/showFeed?type=etoc&feed=rss&jc=cell-systems"
-  - name: "Cell Reports Medicine (ScienceDirect Feed)"
-    url: "https://rss.sciencedirect.com/publication/science/26663791"
-  - name: "Molecular Plant (ScienceDirect Feed)"
-    url: "https://rss.sciencedirect.com/publication/science/16742052"
-  - name: "Plant Communications (ScienceDirect Feed)"
-    url: "https://rss.sciencedirect.com/publication/science/25903462"
-  - name: "The Plant Cell - Advance Articles (Oxford Academic)"
-    url: "https://academic.oup.com/rss/site_6317/advanceAccess_4077.xml"
-  - name: "Journal of Experimental Botany - Advance Articles (Oxford Academic)"
-    url: "https://academic.oup.com/rss/site_5304/advanceAccess_3170.xml"
-  - name: "Horticulture Research - Advance Articles (Oxford Academic)"
-    url: "https://academic.oup.com/rss/site_6464/advanceAccess_4122.xml"
-  - name: "Developmental Cell (ScienceDirect Feed)"
-    url: "https://rss.sciencedirect.com/publication/science/15345807"
-  - name: "Current Biology (ScienceDirect Feed)"
-    url: "https://rss.sciencedirect.com/publication/science/09609822"
-  - name: "Cell Reports (ScienceDirect Feed)"
-    url: "https://rss.sciencedirect.com/publication/science/22111247"
-  - name: "Trends in Plant Science (ScienceDirect Feed)"
-    url: "https://rss.sciencedirect.com/publication/science/13601385"
-  - name: "Trends in Genetics (ScienceDirect Feed)"
-    url: "https://rss.sciencedirect.com/publication/science/01689525"
-  - name: "Trends in Microbiology (ScienceDirect Feed)"
-    url: "https://rss.sciencedirect.com/publication/science/0966842X"
-  - name: "Trends in Immunology (ScienceDirect Feed)"
-    url: "https://rss.sciencedirect.com/publication/science/14714906"
-  - name: "Current Opinion in Microbiology (ScienceDirect Feed)"
-    url: "https://rss.sciencedirect.com/publication/science/13695274"
-  - name: "Current Opinion in Immunology (ScienceDirect Feed)"
-    url: "https://rss.sciencedirect.com/publication/science/09527915"
-  - name: "Current Opinion in Plant Biology (ScienceDirect Feed)"
-    url: "https://rss.sciencedirect.com/publication/science/13695266"
-  - name: "PLOS Pathogens"
-    url: "https://journals.plos.org/plospathogens/feed/rss"
-  - name: "PLOS Biology"
-    url: "https://journals.plos.org/plosbiology/feed/rss"
-  - name: "PLOS Genetics"
-    url: "https://journals.plos.org/plosgenetics/feed/rss"
-  - name: "PLOS Computational Biology"
-    url: "https://journals.plos.org/ploscompbiol/feed/rss"
-  # ASM feeds are kept as visible optional sources because journals.asm.org currently
-  # returns HTTP 403 to non-browser fetches in some environments.
-  - name: "mBio (ASM, optional)"
-    url: "https://journals.asm.org/action/showFeed?type=etoc&feed=rss&jc=mbio"
-    enabled: false
-  - name: "mSystems (ASM, optional)"
-    url: "https://journals.asm.org/action/showFeed?type=etoc&feed=rss&jc=msystems"
-    enabled: false
-  - name: "mSphere (ASM, optional)"
-    url: "https://journals.asm.org/action/showFeed?type=etoc&feed=rss&jc=msphere"
-    enabled: false
-  - name: "Microbiology Spectrum (ASM, optional)"
-    url: "https://journals.asm.org/action/showFeed?type=etoc&feed=rss&jc=spectrum"
-    enabled: false
-  - name: "Applied and Environmental Microbiology (ASM, optional)"
-    url: "https://journals.asm.org/action/showFeed?type=etoc&feed=rss&jc=aem"
-    enabled: false
-  - name: "Infection and Immunity (ASM, optional)"
-    url: "https://journals.asm.org/action/showFeed?type=etoc&feed=rss&jc=iai"
-    enabled: false
-  - name: "PNAS Current"
-    url: "https://www.pnas.org/rss/current.xml"
-  - name: "Advanced Science (Wiley)"
-    url: "https://onlinelibrary.wiley.com/action/showFeed?type=etoc&feed=rss&jc=21983844"
-  - name: "New Phytologist (Wiley)"
-    url: "https://onlinelibrary.wiley.com/action/showFeed?type=etoc&feed=rss&jc=14698137"
-  - name: "Plant Biotechnology Journal (Wiley)"
-    url: "https://onlinelibrary.wiley.com/action/showFeed?type=etoc&feed=rss&jc=14677652"
-  - name: "The Plant Journal (Wiley)"
-    url: "https://onlinelibrary.wiley.com/action/showFeed?type=etoc&feed=rss&jc=1365313x"
-  - name: "Plant, Cell & Environment (Wiley)"
-    url: "https://onlinelibrary.wiley.com/action/showFeed?type=etoc&feed=rss&jc=13653040"
-  - name: "Genome Biology (Springer)"
-    url: "https://link.springer.com/search.rss?facet-journal-id=13059"
-  - name: "Genome Research - GR-in-Advance (CSHL Press)"
-    url: "https://genome.cshlp.org/rss/ahead.xml"
-  - name: "Cell Genomics (ScienceDirect Feed)"
-    url: "https://rss.sciencedirect.com/publication/science/2666979X"
-  - name: "arXiv cs.CL"
-    url: "https://export.arxiv.org/api/query?search_query=cat:cs.CL&start=0&max_results=50&sortBy=submittedDate&sortOrder=descending"
-  - name: "arXiv cs.LG"
-    url: "https://export.arxiv.org/api/query?search_query=cat:cs.LG&start=0&max_results=50&sortBy=submittedDate&sortOrder=descending"
-  - name: "arXiv cs.AI"
-    url: "https://export.arxiv.org/api/query?search_query=cat:cs.AI&start=0&max_results=50&sortBy=submittedDate&sortOrder=descending"
-  - name: "arXiv q-bio.BM"
-    url: "https://export.arxiv.org/api/query?search_query=cat:q-bio.BM&start=0&max_results=50&sortBy=submittedDate&sortOrder=descending"
-
-# Optional bioRxiv API import. Disable it if you only want journal RSS feeds.
+- name: Nature
+  url: https://www.nature.com/nature.rss
+- name: Nature Genetics
+  url: https://www.nature.com/ng.rss
+- name: Nature Communications
+  url: https://www.nature.com/ncomms.rss
+- name: Nature Plants
+  url: https://www.nature.com/nplants.rss
+- name: Nature Microbiology
+  url: https://www.nature.com/nmicrobiol.rss
+- name: Nature Reviews Microbiology
+  url: https://www.nature.com/nrmicro.rss
+- name: Nature Immunology
+  url: https://www.nature.com/ni.rss
+- name: Nature Reviews Immunology
+  url: https://www.nature.com/nri.rss
+- name: ISME Communications
+  url: https://www.nature.com/ismecomms.rss
+- name: Nature Machine Intelligence
+  url: https://www.nature.com/natmachintell.rss
+- name: Nature Computational Science
+  url: https://www.nature.com/natcomputsci.rss
+- name: Nature Reviews Genetics
+  url: https://www.nature.com/nrg.rss
+- name: Nature Methods
+  url: https://www.nature.com/nmeth.rss
+- name: Nature Biotechnology
+  url: https://www.nature.com/nbt.rss
+- name: Science
+  url: https://www.science.org/action/showFeed?type=etoc&feed=rss&jc=science
+- name: Science Advances
+  url: https://www.science.org/action/showFeed?type=etoc&feed=rss&jc=sciadv
+- name: Cell (ScienceDirect Feed)
+  url: https://rss.sciencedirect.com/publication/science/00928674
+- name: Cell Host & Microbe (ScienceDirect Feed)
+  url: https://rss.sciencedirect.com/publication/science/19313128
+- name: Immunity (ScienceDirect Feed)
+  url: https://rss.sciencedirect.com/publication/science/10747613
+- name: Cell Systems (Cell Press Feed)
+  url: https://www.cell.com/action/showFeed?type=etoc&feed=rss&jc=cell-systems
+- name: Cell Reports Medicine (ScienceDirect Feed)
+  url: https://rss.sciencedirect.com/publication/science/26663791
+- name: Molecular Plant (ScienceDirect Feed)
+  url: https://rss.sciencedirect.com/publication/science/16742052
+- name: Plant Communications (ScienceDirect Feed)
+  url: https://rss.sciencedirect.com/publication/science/25903462
+- name: The Plant Cell - Advance Articles (Oxford Academic)
+  url: https://academic.oup.com/rss/site_6317/advanceAccess_4077.xml
+- name: Journal of Experimental Botany - Advance Articles (Oxford Academic)
+  url: https://academic.oup.com/rss/site_5304/advanceAccess_3170.xml
+- name: Horticulture Research - Advance Articles (Oxford Academic)
+  url: https://academic.oup.com/rss/site_6464/advanceAccess_4122.xml
+- name: Developmental Cell (ScienceDirect Feed)
+  url: https://rss.sciencedirect.com/publication/science/15345807
+- name: Current Biology (ScienceDirect Feed)
+  url: https://rss.sciencedirect.com/publication/science/09609822
+- name: Cell Reports (ScienceDirect Feed)
+  url: https://rss.sciencedirect.com/publication/science/22111247
+- name: Trends in Plant Science (ScienceDirect Feed)
+  url: https://rss.sciencedirect.com/publication/science/13601385
+- name: Trends in Genetics (ScienceDirect Feed)
+  url: https://rss.sciencedirect.com/publication/science/01689525
+- name: Trends in Microbiology (ScienceDirect Feed)
+  url: https://rss.sciencedirect.com/publication/science/0966842X
+- name: Trends in Immunology (ScienceDirect Feed)
+  url: https://rss.sciencedirect.com/publication/science/14714906
+- name: Current Opinion in Microbiology (ScienceDirect Feed)
+  url: https://rss.sciencedirect.com/publication/science/13695274
+- name: Current Opinion in Immunology (ScienceDirect Feed)
+  url: https://rss.sciencedirect.com/publication/science/09527915
+- name: Current Opinion in Plant Biology (ScienceDirect Feed)
+  url: https://rss.sciencedirect.com/publication/science/13695266
+- name: PLOS Pathogens
+  url: https://journals.plos.org/plospathogens/feed/rss
+- name: PLOS Biology
+  url: https://journals.plos.org/plosbiology/feed/rss
+- name: PLOS Genetics
+  url: https://journals.plos.org/plosgenetics/feed/rss
+- name: PLOS Computational Biology
+  url: https://journals.plos.org/ploscompbiol/feed/rss
+- name: mBio (ASM, optional)
+  url: https://journals.asm.org/action/showFeed?type=etoc&feed=rss&jc=mbio
+  enabled: false
+- name: mSystems (ASM, optional)
+  url: https://journals.asm.org/action/showFeed?type=etoc&feed=rss&jc=msystems
+  enabled: false
+- name: mSphere (ASM, optional)
+  url: https://journals.asm.org/action/showFeed?type=etoc&feed=rss&jc=msphere
+  enabled: false
+- name: Microbiology Spectrum (ASM, optional)
+  url: https://journals.asm.org/action/showFeed?type=etoc&feed=rss&jc=spectrum
+  enabled: false
+- name: Applied and Environmental Microbiology (ASM, optional)
+  url: https://journals.asm.org/action/showFeed?type=etoc&feed=rss&jc=aem
+  enabled: false
+- name: Infection and Immunity (ASM, optional)
+  url: https://journals.asm.org/action/showFeed?type=etoc&feed=rss&jc=iai
+  enabled: false
+- name: PNAS Current
+  url: https://www.pnas.org/rss/current.xml
+- name: Advanced Science (Wiley)
+  url: https://onlinelibrary.wiley.com/action/showFeed?type=etoc&feed=rss&jc=21983844
+- name: New Phytologist (Wiley)
+  url: https://onlinelibrary.wiley.com/action/showFeed?type=etoc&feed=rss&jc=14698137
+- name: Plant Biotechnology Journal (Wiley)
+  url: https://onlinelibrary.wiley.com/action/showFeed?type=etoc&feed=rss&jc=14677652
+- name: The Plant Journal (Wiley)
+  url: https://onlinelibrary.wiley.com/action/showFeed?type=etoc&feed=rss&jc=1365313x
+- name: Plant, Cell & Environment (Wiley)
+  url: https://onlinelibrary.wiley.com/action/showFeed?type=etoc&feed=rss&jc=13653040
+- name: Genome Biology (Springer)
+  url: https://link.springer.com/search.rss?facet-journal-id=13059
+- name: Genome Research - GR-in-Advance (CSHL Press)
+  url: https://genome.cshlp.org/rss/ahead.xml
+- name: Cell Genomics (ScienceDirect Feed)
+  url: https://rss.sciencedirect.com/publication/science/2666979X
+- name: arXiv cs.CL
+  url: https://export.arxiv.org/api/query?search_query=cat:cs.CL&start=0&max_results=50&sortBy=submittedDate&sortOrder=descending
+- name: arXiv cs.LG
+  url: https://export.arxiv.org/api/query?search_query=cat:cs.LG&start=0&max_results=50&sortBy=submittedDate&sortOrder=descending
+- name: arXiv cs.AI
+  url: https://export.arxiv.org/api/query?search_query=cat:cs.AI&start=0&max_results=50&sortBy=submittedDate&sortOrder=descending
+- name: arXiv q-bio.BM
+  url: https://export.arxiv.org/api/query?search_query=cat:q-bio.BM&start=0&max_results=50&sortBy=submittedDate&sortOrder=descending
+- name: Nature Food
+  url: https://www.nature.com/natfood.rss
+  tags:
+  - plant
+  - food
+  - agriculture
+- name: Journal of Genetics and Genomics (ScienceDirect Feed)
+  url: https://rss.sciencedirect.com/publication/science/16738527
+- name: Bioinformatics - Advance Articles (Oxford Academic)
+  url: https://academic.oup.com/bioinformatics/advance-articles/rss
+  enabled: false
+  tags:
+  - bioinformatics
+  - methods
+  - tools
+- name: Briefings in Bioinformatics (Oxford Academic)
+  url: https://academic.oup.com/bib/rss
+  enabled: false
+  tags:
+  - bioinformatics
+  - review
+  - methods
+- name: iMeta (Wiley)
+  url: https://onlinelibrary.wiley.com/action/showFeed?type=etoc&feed=rss&jc=2770596x
+  enabled: false
+  tags:
+  - bioinformatics
+  - methods
+  - omics
+- name: Annual Review of Plant Biology
+  url: https://www.annualreviews.org/action/showFeed?type=etoc&feed=rss&jc=arplant
+  enabled: false
+  tags:
+  - plant
+  - review
+- name: Genomics, Proteomics & Bioinformatics
+  url: https://rss.sciencedirect.com/publication/science/16720229
+  enabled: false
+  tags:
+  - bioinformatics
+  - genomics
+  - methods
+- name: Annual Review of Genetics
+  url: https://www.annualreviews.org/action/showFeed?type=etoc&feed=rss&jc=genet
+  enabled: false
+  tags:
+  - genetics
+  - review
+- name: Annual Review of Genomics and Human Genetics
+  url: https://www.annualreviews.org/action/showFeed?type=etoc&feed=rss&jc=genom
+  enabled: false
+  tags:
+  - genomics
+  - review
+- name: Annual Review of Cell and Developmental Biology
+  url: https://www.annualreviews.org/action/showFeed?type=etoc&feed=rss&jc=cellbio
+  enabled: false
+  tags:
+  - cell biology
+  - review
+- name: Annual Review of Biochemistry
+  url: https://www.annualreviews.org/action/showFeed?type=etoc&feed=rss&jc=biochem
+  enabled: false
+  tags:
+  - biochemistry
+  - review
+- name: Annual Review of Microbiology
+  url: https://www.annualreviews.org/action/showFeed?type=etoc&feed=rss&jc=micro
+  enabled: false
+  tags:
+  - microbiology
+  - review
+- name: Annual Review of Immunology
+  url: https://www.annualreviews.org/action/showFeed?type=etoc&feed=rss&jc=immunol
+  enabled: false
+  tags:
+  - immunology
+  - review
+- name: Annual Review of Biomedical Data Science
+  url: https://www.annualreviews.org/action/showFeed?type=etoc&feed=rss&jc=biodatasci
+  enabled: false
+  tags:
+  - bioinformatics
+  - data science
+  - review
+- name: Annual Review of Virology
+  url: https://www.annualreviews.org/action/showFeed?type=etoc&feed=rss&jc=virology
+  enabled: false
+  tags:
+  - virology
+  - review
 biorxiv_api:
   enabled: true
-  base_url: "https://api.biorxiv.org"
-  server: "biorxiv"
+  base_url: https://api.biorxiv.org
+  server: biorxiv
   days_back: 2
   request_interval_seconds: 2
   max_pages_per_category: 5
   categories:
-    - "bioinformatics"
-    - "genomics"
-    - "systems_biology"
-    - "molecular_biology"
-    - "cell_biology"
-
+  - bioinformatics
+  - genomics
+  - systems_biology
+  - molecular_biology
+  - cell_biology
 rules:
   exclude_rules:
-    - name: "Non-research items"
-      source_contains: ""
-      keywords:
-        - "news"
-        - "podcast"
-        - "editorial"
-        - "correction"
-        - "retraction"
-        - "erratum"
-        - "book review"
+  - name: Non-research items
+    source_contains: ''
+    keywords:
+    - news
+    - podcast
+    - editorial
+    - correction
+    - retraction
+    - erratum
+    - book review
   tag_rules:
-    - tag: "AI / ML"
-      keywords:
-        - "artificial intelligence"
-        - "machine learning"
-        - "deep learning"
-        - "large language model"
-        - "foundation model"
-    - tag: "genomics"
-      keywords:
-        - "genome"
-        - "genomics"
-        - "transcriptome"
-        - "single-cell"
-        - "GWAS"
+  - tag: AI / ML
+    keywords:
+    - artificial intelligence
+    - machine learning
+    - deep learning
+    - large language model
+    - foundation model
+  - tag: genomics
+    keywords:
+    - genome
+    - genomics
+    - transcriptome
+    - single-cell
+    - GWAS

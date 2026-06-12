@@ -5,6 +5,7 @@ import json
 import logging
 import re
 import sqlite3
+import unicodedata
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -16,6 +17,28 @@ OUTPUT_DIR = BASE_DIR / "output"
 LOGS_DIR = BASE_DIR / "logs"
 DB_PATH = DATA_DIR / "rss_ai.db"
 LOG_PATH = LOGS_DIR / "app.log"
+SEARCH_TEXT_SQL = """
+search_norm(
+    a.original_title,
+    a.translated_title,
+    a.original_description,
+    a.authors,
+    a.doi,
+    m.user_note,
+    m.tags,
+    m.system_tags
+)
+"""
+RAW_SEARCH_COLUMNS = [
+    "a.original_title",
+    "a.translated_title",
+    "a.original_description",
+    "a.authors",
+    "a.doi",
+    "m.user_note",
+    "m.tags",
+    "m.system_tags",
+]
 
 
 def ensure_dirs() -> None:
@@ -42,6 +65,54 @@ def setup_logging() -> None:
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _normalize_search_text(*values: Any) -> str:
+    text = "\n".join(str(value or "") for value in values)
+    text = unicodedata.normalize("NFKC", text).casefold()
+    text = re.sub(r"[\u2010-\u2015\u2212]", "-", text)
+    text = re.sub(r"[^0-9a-z\u4e00-\u9fff]+", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _search_tokens(value: str) -> list[str]:
+    normalized = _normalize_search_text(value)
+    if not normalized:
+        return []
+    return [token for token in normalized.split() if len(token) >= 2]
+
+
+def _append_search_clause(
+    where: list[str],
+    params: list[Any],
+    value: str,
+    connector: str = "OR",
+) -> None:
+    raw = value.strip()
+    normalized = _normalize_search_text(raw)
+    tokens = _search_tokens(raw)
+    if not raw and not normalized:
+        return
+
+    raw_clauses = [f"{column} LIKE ?" for column in RAW_SEARCH_COLUMNS]
+    raw_params = [f"%{raw}%"] * len(RAW_SEARCH_COLUMNS)
+    clauses = ["(" + " OR ".join(raw_clauses) + ")"]
+    clause_params: list[Any] = [*raw_params]
+
+    if normalized:
+        clauses.append(f"{SEARCH_TEXT_SQL} LIKE ?")
+        clause_params.append(f"%{normalized}%")
+
+    if len(tokens) >= 2:
+        clauses.append("(" + " AND ".join([f"{SEARCH_TEXT_SQL} LIKE ?" for _ in tokens]) + ")")
+        clause_params.extend([f"%{token}%" for token in tokens])
+
+    where.append("(" + f" {connector} ".join(clauses) + ")")
+    params.extend(clause_params)
+
+
+def _register_sqlite_functions(conn: sqlite3.Connection) -> None:
+    conn.create_function("search_norm", -1, _normalize_search_text, deterministic=True)
 
 
 def make_dedupe_key(source_name: str, guid: str | None, link: str | None, title: str | None) -> str:
@@ -131,6 +202,7 @@ def get_connection() -> sqlite3.Connection:
     ensure_dirs()
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
+    _register_sqlite_functions(conn)
     return conn
 
 
@@ -156,6 +228,11 @@ def _split_tag_values(*values: str | None) -> list[str]:
 def _row_has_tag(row: sqlite3.Row, tag: str) -> bool:
     needle = tag.strip().casefold()
     return needle in {item.casefold() for item in _split_tag_values(row["tags"], row["system_tags"])}
+
+
+def relevance_profile_hash(profile: str) -> str:
+    clean_profile = re.sub(r"\s+", " ", profile.strip())
+    return hashlib.sha256(clean_profile.encode("utf-8")).hexdigest()
 
 
 def init_db() -> None:
@@ -216,10 +293,21 @@ def init_db() -> None:
         _ensure_column(conn, "article_meta", "system_tags", "TEXT")
         _ensure_column(conn, "article_meta", "reading_level", "TEXT DEFAULT 'none'")
         _ensure_column(conn, "article_meta", "zotero_status", "TEXT DEFAULT 'not_saved'")
+        _ensure_column(conn, "article_meta", "relevance_label", "TEXT")
+        _ensure_column(conn, "article_meta", "relevance_score", "INTEGER")
+        _ensure_column(conn, "article_meta", "relevance_reason", "TEXT")
+        _ensure_column(conn, "article_meta", "relevance_profile_hash", "TEXT")
+        _ensure_column(conn, "article_meta", "relevance_checked_at", "TEXT")
+        _ensure_column(conn, "article_meta", "relevance_source", "TEXT")
+        _ensure_column(conn, "article_meta", "article_semantics", "TEXT")
+        _ensure_column(conn, "article_meta", "article_semantics_source", "TEXT")
+        _ensure_column(conn, "article_meta", "article_semantics_checked_at", "TEXT")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_article_meta_read_status ON article_meta(read_status)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_article_meta_reading_level ON article_meta(reading_level)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_article_meta_favorite ON article_meta(favorite)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_article_meta_zotero_status ON article_meta(zotero_status)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_article_meta_relevance_label ON article_meta(relevance_label)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_article_meta_relevance_profile_hash ON article_meta(relevance_profile_hash)")
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS source_health (
@@ -251,6 +339,15 @@ def init_db() -> None:
             """
         )
         conn.execute("CREATE INDEX IF NOT EXISTS idx_deleted_articles_link ON deleted_articles(link)")
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS app_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT,
+                updated_at TEXT
+            )
+            """
+        )
         _backfill_article_metadata(conn)
         conn.commit()
 
@@ -344,43 +441,18 @@ def list_articles(
     where = []
     params: list[Any] = []
     if query:
-        like = f"%{query.strip()}%"
-        where.append(
-            """
-            (
-                a.original_title LIKE ?
-                OR a.translated_title LIKE ?
-                OR a.original_description LIKE ?
-                OR a.authors LIKE ?
-                OR a.doi LIKE ?
-                OR m.user_note LIKE ?
-                OR m.tags LIKE ?
-                OR m.system_tags LIKE ?
-            )
-            """
-        )
-        params.extend([like, like, like, like, like, like, like, like])
+        _append_search_clause(where, params, query)
     clean_terms = [term.strip() for term in smart_terms or [] if term.strip()]
     if clean_terms:
         term_clauses = []
+        term_params: list[Any] = []
         for term in clean_terms:
-            like = f"%{term}%"
-            term_clauses.append(
-                """
-                (
-                    a.original_title LIKE ?
-                    OR a.translated_title LIKE ?
-                    OR a.original_description LIKE ?
-                    OR a.authors LIKE ?
-                    OR a.doi LIKE ?
-                    OR m.user_note LIKE ?
-                    OR m.tags LIKE ?
-                    OR m.system_tags LIKE ?
-                )
-                """
-            )
-            params.extend([like, like, like, like, like, like, like, like])
+            before = len(where)
+            _append_search_clause(where, term_params, term, connector="OR")
+            if len(where) > before:
+                term_clauses.append(where.pop())
         where.append("(" + " OR ".join(term_clauses) + ")")
+        params.extend(term_params)
     if source:
         where.append("a.source_name = ?")
         params.append(source)
@@ -424,12 +496,28 @@ def list_articles(
                 COALESCE(m.pdf_url, '') AS pdf_url,
                 COALESCE(NULLIF(a.doi, ''), m.doi, '') AS doi,
                 COALESCE(m.zotero_status, 'not_saved') AS zotero_status,
+                COALESCE(m.relevance_label, '') AS relevance_label,
+                COALESCE(m.relevance_score, 0) AS relevance_score,
+                COALESCE(m.relevance_reason, '') AS relevance_reason,
+                COALESCE(m.relevance_source, '') AS relevance_source,
+                COALESCE(m.article_semantics, '') AS article_semantics,
+                m.relevance_checked_at,
                 m.opened_at,
                 m.noted_at
             FROM articles a
             LEFT JOIN article_meta m ON m.article_id = a.article_id
             {where_sql}
-            ORDER BY datetime(COALESCE(a.published_at, a.fetched_at, a.created_at)) DESC, a.article_id DESC
+            ORDER BY
+                CASE COALESCE(m.relevance_label, '')
+                    WHEN 'strong' THEN 0
+                    WHEN 'weak' THEN 1
+                    WHEN 'uncertain' THEN 2
+                    WHEN '' THEN 3
+                    ELSE 4
+                END,
+                COALESCE(m.relevance_score, 0) DESC,
+                datetime(COALESCE(a.published_at, a.fetched_at, a.created_at)) DESC,
+                a.article_id DESC
             LIMIT ?
             """,
             (*params, limit),
@@ -445,6 +533,34 @@ def list_source_names() -> list[str]:
                 "SELECT DISTINCT source_name FROM articles ORDER BY source_name"
             ).fetchall()
         ]
+
+
+def get_workbench_summary() -> dict[str, int]:
+    init_db()
+    today = datetime.now(timezone.utc).date().isoformat()
+    with get_connection() as conn:
+        row = conn.execute(
+            """
+            SELECT
+                SUM(CASE WHEN date(COALESCE(a.fetched_at, a.created_at, a.published_at)) >= date(?) THEN 1 ELSE 0 END) AS today_added,
+                SUM(CASE WHEN COALESCE(m.read_status, 'unread') IN ('unread', 'opened', 'to_read')
+                    AND COALESCE(m.relevance_label, '') = '' THEN 1 ELSE 0 END) AS pending_relevance,
+                SUM(CASE WHEN COALESCE(m.read_status, 'unread') IN ('unread', 'opened', 'to_read')
+                    AND COALESCE(m.relevance_label, '') = 'strong' THEN 1 ELSE 0 END) AS strong,
+                SUM(CASE WHEN COALESCE(m.read_status, 'unread') = 'filtered' THEN 1 ELSE 0 END) AS hidden,
+                SUM(CASE WHEN COALESCE(m.read_status, 'unread') = 'to_read' THEN 1 ELSE 0 END) AS to_read
+            FROM articles a
+            LEFT JOIN article_meta m ON m.article_id = a.article_id
+            """,
+            (today,),
+        ).fetchone()
+    return {
+        "today_added": int(row["today_added"] or 0),
+        "pending_relevance": int(row["pending_relevance"] or 0),
+        "strong": int(row["strong"] or 0),
+        "hidden": int(row["hidden"] or 0),
+        "to_read": int(row["to_read"] or 0),
+    }
 
 
 def get_article_detail(article_id: int) -> sqlite3.Row | None:
@@ -463,6 +579,11 @@ def get_article_detail(article_id: int) -> sqlite3.Row | None:
                 COALESCE(m.pdf_url, '') AS pdf_url,
                 COALESCE(NULLIF(a.doi, ''), m.doi, '') AS doi,
                 COALESCE(m.zotero_status, 'not_saved') AS zotero_status,
+                COALESCE(m.relevance_label, '') AS relevance_label,
+                COALESCE(m.relevance_score, 0) AS relevance_score,
+                COALESCE(m.relevance_reason, '') AS relevance_reason,
+                COALESCE(m.relevance_source, '') AS relevance_source,
+                m.relevance_checked_at,
                 m.opened_at,
                 m.noted_at
             FROM articles a
@@ -489,6 +610,11 @@ def iter_article_details() -> list[sqlite3.Row]:
                 COALESCE(m.pdf_url, '') AS pdf_url,
                 COALESCE(NULLIF(a.doi, ''), m.doi, '') AS doi,
                 COALESCE(m.zotero_status, 'not_saved') AS zotero_status,
+                COALESCE(m.relevance_label, '') AS relevance_label,
+                COALESCE(m.relevance_score, 0) AS relevance_score,
+                COALESCE(m.relevance_reason, '') AS relevance_reason,
+                COALESCE(m.relevance_source, '') AS relevance_source,
+                m.relevance_checked_at,
                 m.opened_at,
                 m.noted_at
             FROM articles a
@@ -606,7 +732,12 @@ def recent_digest(days: int = 7, limit: int = 200) -> list[sqlite3.Row]:
                 COALESCE(m.tags, '') AS tags,
                 COALESCE(m.system_tags, '') AS system_tags,
                 COALESCE(NULLIF(a.doi, ''), m.doi, '') AS doi,
-                COALESCE(m.zotero_status, 'not_saved') AS zotero_status
+                COALESCE(m.zotero_status, 'not_saved') AS zotero_status,
+                COALESCE(m.relevance_label, '') AS relevance_label,
+                COALESCE(m.relevance_score, 0) AS relevance_score,
+                COALESCE(m.relevance_reason, '') AS relevance_reason,
+                COALESCE(m.relevance_source, '') AS relevance_source,
+                m.relevance_checked_at
             FROM articles a
             LEFT JOIN article_meta m ON m.article_id = a.article_id
             WHERE date(COALESCE(a.published_at, a.fetched_at, a.created_at)) >= date(?)
@@ -745,6 +876,153 @@ def update_article_description(article_id: int, description: str) -> bool:
     return True
 
 
+def get_app_setting(key: str, default: str = "") -> str:
+    init_db()
+    with get_connection() as conn:
+        row = conn.execute("SELECT value FROM app_settings WHERE key = ?", (key,)).fetchone()
+    if row is None:
+        return default
+    return str(row["value"] or "")
+
+
+def set_app_setting(key: str, value: str) -> None:
+    init_db()
+    timestamp = now_iso()
+    with get_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO app_settings (key, value, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(key) DO UPDATE SET
+                value = excluded.value,
+                updated_at = excluded.updated_at
+            """,
+            (key, value, timestamp),
+        )
+        conn.commit()
+
+
+def get_articles_for_relevance(
+    profile_hash: str,
+    limit: int | None = None,
+    scope: str = "unread_pending",
+) -> list[sqlite3.Row]:
+    init_db()
+    clean_scope = scope if scope in {"new_only", "unread_pending"} else "unread_pending"
+    scope_clause = "COALESCE(m.relevance_profile_hash, '') = ''" if clean_scope == "new_only" else "COALESCE(m.relevance_profile_hash, '') != ?"
+    query = """
+        SELECT
+            a.*,
+            COALESCE(m.read_status, 'unread') AS read_status,
+            COALESCE(m.reading_level, 'none') AS reading_level,
+            COALESCE(m.favorite, 0) AS favorite,
+            COALESCE(m.user_note, '') AS user_note,
+            COALESCE(m.tags, '') AS tags,
+            COALESCE(m.system_tags, '') AS system_tags,
+            COALESCE(NULLIF(a.doi, ''), m.doi, '') AS doi,
+            COALESCE(m.relevance_label, '') AS relevance_label,
+            COALESCE(m.relevance_profile_hash, '') AS relevance_profile_hash,
+            COALESCE(m.article_semantics, '') AS article_semantics
+        FROM articles a
+        LEFT JOIN article_meta m ON m.article_id = a.article_id
+        WHERE COALESCE(m.read_status, 'unread') IN ('unread', 'opened', 'to_read')
+          AND """ + scope_clause + """
+        ORDER BY datetime(COALESCE(a.published_at, a.fetched_at, a.created_at)) DESC, a.article_id DESC
+    """
+    params: tuple[Any, ...] = () if clean_scope == "new_only" else (profile_hash,)
+    if limit is not None:
+        query += " LIMIT ?"
+        params = (*params, limit)
+    with get_connection() as conn:
+        return conn.execute(query, params).fetchall()
+
+
+def update_article_semantics(article_id: int, semantics: dict[str, Any], source: str) -> None:
+    init_db()
+    timestamp = now_iso()
+    payload = json.dumps(semantics, ensure_ascii=False, sort_keys=True)
+    with get_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO article_meta (article_id, created_at, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(article_id) DO NOTHING
+            """,
+            (article_id, timestamp, timestamp),
+        )
+        conn.execute(
+            """
+            UPDATE article_meta
+            SET article_semantics = ?,
+                article_semantics_source = ?,
+                article_semantics_checked_at = ?,
+                updated_at = ?
+            WHERE article_id = ?
+            """,
+            (payload, source, timestamp, timestamp, article_id),
+        )
+        conn.commit()
+
+
+def update_article_relevance(
+    article_id: int,
+    label: str,
+    score: int,
+    reason: str,
+    profile_hash: str,
+    source: str,
+) -> None:
+    init_db()
+    clean_label = label if label in {"strong", "weak", "uncertain", "irrelevant"} else "uncertain"
+    clean_score = max(0, min(int(score or 0), 100))
+    timestamp = now_iso()
+    read_status = "filtered" if clean_label == "irrelevant" else None
+    with get_connection() as conn:
+        conn.execute(
+            """
+            INSERT INTO article_meta (article_id, created_at, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(article_id) DO NOTHING
+            """,
+            (article_id, timestamp, timestamp),
+        )
+        if read_status:
+            conn.execute(
+                """
+                UPDATE article_meta
+                SET relevance_label = ?,
+                    relevance_score = ?,
+                    relevance_reason = ?,
+                    relevance_profile_hash = ?,
+                    relevance_checked_at = ?,
+                    relevance_source = ?,
+                    read_status = CASE
+                        WHEN read_status IN ('read', 'to_read') THEN read_status
+                        ELSE 'filtered'
+                    END,
+                    updated_at = ?
+                WHERE article_id = ?
+                """,
+                (clean_label, clean_score, reason[:500], profile_hash, timestamp, source, timestamp, article_id),
+            )
+        else:
+            conn.execute(
+                """
+                UPDATE article_meta
+                SET relevance_label = ?,
+                    relevance_score = ?,
+                    relevance_reason = ?,
+                    relevance_profile_hash = ?,
+                    relevance_checked_at = ?,
+                    relevance_source = ?,
+                    updated_at = ?
+                WHERE article_id = ?
+                """,
+                (clean_label, clean_score, reason[:500], profile_hash, timestamp, source, timestamp, article_id),
+            )
+        conn.commit()
+
+
 def get_stats() -> dict[str, int]:
     init_db()
     with get_connection() as conn:
@@ -762,6 +1040,10 @@ def get_stats() -> dict[str, int]:
                 SUM(CASE WHEN COALESCE(m.reading_level, 'none') = 'deep_read' THEN 1 ELSE 0 END) AS deep_read,
                 SUM(CASE WHEN COALESCE(m.favorite, 0) = 1 THEN 1 ELSE 0 END) AS favorite,
                 SUM(CASE WHEN COALESCE(m.zotero_status, 'not_saved') = 'saved' THEN 1 ELSE 0 END) AS zotero_saved,
+                SUM(CASE WHEN COALESCE(m.relevance_label, '') = 'strong' THEN 1 ELSE 0 END) AS relevance_strong,
+                SUM(CASE WHEN COALESCE(m.relevance_label, '') = 'weak' THEN 1 ELSE 0 END) AS relevance_weak,
+                SUM(CASE WHEN COALESCE(m.relevance_label, '') = 'uncertain' THEN 1 ELSE 0 END) AS relevance_uncertain,
+                SUM(CASE WHEN COALESCE(m.relevance_label, '') = 'irrelevant' THEN 1 ELSE 0 END) AS relevance_irrelevant,
                 SUM(CASE WHEN title_status = 'translated' THEN 1 ELSE 0 END) AS translated,
                 SUM(CASE WHEN summary_status = 'summarized' THEN 1 ELSE 0 END) AS summarized,
                 SUM(CASE WHEN title_status = 'failed' OR summary_status = 'failed' THEN 1 ELSE 0 END) AS failed
@@ -781,6 +1063,10 @@ def get_stats() -> dict[str, int]:
         "deep_read": int(row["deep_read"] or 0),
         "favorite": int(row["favorite"] or 0),
         "zotero_saved": int(row["zotero_saved"] or 0),
+        "relevance_strong": int(row["relevance_strong"] or 0),
+        "relevance_weak": int(row["relevance_weak"] or 0),
+        "relevance_uncertain": int(row["relevance_uncertain"] or 0),
+        "relevance_irrelevant": int(row["relevance_irrelevant"] or 0),
         "translated": int(row["translated"] or 0),
         "summarized": int(row["summarized"] or 0),
         "failed": int(row["failed"] or 0),
@@ -865,6 +1151,11 @@ def update_article_meta(
                 COALESCE(m.pdf_url, '') AS pdf_url,
                 COALESCE(NULLIF(a.doi, ''), m.doi, '') AS doi,
                 COALESCE(m.zotero_status, 'not_saved') AS zotero_status,
+                COALESCE(m.relevance_label, '') AS relevance_label,
+                COALESCE(m.relevance_score, 0) AS relevance_score,
+                COALESCE(m.relevance_reason, '') AS relevance_reason,
+                COALESCE(m.relevance_source, '') AS relevance_source,
+                m.relevance_checked_at,
                 m.opened_at,
                 m.noted_at
             FROM articles a

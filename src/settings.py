@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 import yaml
 from dotenv import load_dotenv
@@ -12,6 +14,7 @@ from . import storage
 
 
 APP_CONFIG_PATH = storage.BASE_DIR / "config" / "app.yml"
+ENV_PATH = storage.BASE_DIR / ".env"
 
 
 DEFAULT_CONFIG: dict[str, Any] = {
@@ -118,6 +121,37 @@ def reload_config() -> dict[str, Any]:
     return get_config()
 
 
+def update_env_values(values: dict[str, str]) -> None:
+    ENV_PATH.touch(exist_ok=True)
+    lines = ENV_PATH.read_text(encoding="utf-8").splitlines()
+    remaining = dict(values)
+    next_lines = []
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in line:
+            next_lines.append(line)
+            continue
+        key = line.split("=", 1)[0].strip()
+        if key in remaining:
+            value = remaining.pop(key).replace("\n", "").strip()
+            next_lines.append(f"{key}={value}")
+            if value:
+                os.environ[key] = value
+            else:
+                os.environ.pop(key, None)
+        else:
+            next_lines.append(line)
+    for key, value in remaining.items():
+        clean_value = value.replace("\n", "").strip()
+        next_lines.append(f"{key}={clean_value}")
+        if clean_value:
+            os.environ[key] = clean_value
+        else:
+            os.environ.pop(key, None)
+    ENV_PATH.write_text("\n".join(next_lines) + "\n", encoding="utf-8")
+    reload_config()
+
+
 def section(name: str) -> dict[str, Any]:
     value = get_config().get(name) or {}
     return value if isinstance(value, dict) else {}
@@ -134,14 +168,112 @@ def page_limit() -> int:
         return 2000
 
 
-def feeds() -> list[dict[str, str]]:
-    result = []
+def _rss_enabled_override() -> set[str] | None:
+    raw = storage.get_app_setting("rss_enabled_sources")
+    if not raw:
+        return None
+    try:
+        values = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(values, list):
+        return None
+    return {str(item).strip() for item in values if str(item).strip()}
+
+
+def _infer_rss_group(name: str, url: str) -> str:
+    lower_name = name.casefold()
+    host = urlsplit(url).netloc.casefold()
+    if "nature.com" in host or lower_name.startswith("nature"):
+        return "Nature Portfolio"
+    if "science.org" in host:
+        return "Science / AAAS"
+    if "sciencedirect.com" in host or "sciencedirect" in lower_name:
+        return "ScienceDirect / Cell Press"
+    if "academic.oup.com" in host or "oxford" in lower_name:
+        return "Oxford Academic"
+    if "wiley.com" in host or "wiley" in lower_name:
+        return "Wiley"
+    if "annualreviews.org" in host:
+        return "Annual Reviews"
+    if "springer.com" in host or "springer" in lower_name:
+        return "Springer Nature"
+    if "cshlp.org" in host or "cshl" in lower_name:
+        return "CSHL Press"
+    if "arxiv.org" in host:
+        return "arXiv"
+    if "pnas.org" in host:
+        return "PNAS"
+    return "其他"
+
+
+def _infer_rss_tags(name: str, explicit_tags: list[str]) -> list[str]:
+    tags = list(explicit_tags)
+    lower_name = name.casefold()
+    tag_rules = [
+        ("plant", ["plant", "phytologist", "horticulture", "crop", "food"]),
+        ("genetics", ["genetic", "genomics", "genome", "gpb"]),
+        ("bioinformatics", ["bioinformatics", "computational", "cs.", "q-bio"]),
+        ("methods", ["methods", "biotechnology", "machine intelligence"]),
+        ("review", ["reviews", "annual review", "briefings"]),
+        ("general", ["nature", "science", "pnas", "communications"]),
+    ]
+    for tag, needles in tag_rules:
+        if any(needle in lower_name for needle in needles) and tag not in tags:
+            tags.append(tag)
+    return tags
+
+
+def all_rss_sources() -> list[dict[str, Any]]:
+    enabled_override = _rss_enabled_override()
+    result: list[dict[str, Any]] = []
     for item in get_config().get("feeds") or []:
         name = str(item.get("name", "")).strip()
         url = str(item.get("url", "")).strip()
         enabled = item.get("enabled", True)
-        if name and url and enabled is not False:
-            result.append({"name": name, "url": url})
+        if not name or not url:
+            continue
+        tags = item.get("tags") or []
+        if not isinstance(tags, list):
+            tags = [str(tags)]
+        clean_tags = [str(tag).strip() for tag in tags if str(tag).strip()]
+        configured_enabled = enabled is not False
+        result.append(
+            {
+                "name": name,
+                "url": url,
+                "group": str(item.get("group") or _infer_rss_group(name, url)).strip() or "其他",
+                "tags": _infer_rss_tags(name, clean_tags),
+                "host": urlsplit(url).netloc,
+                "enabled": configured_enabled if enabled_override is None else name in enabled_override,
+                "configured_enabled": configured_enabled,
+            }
+        )
+    return result
+
+
+def rss_source_groups() -> list[dict[str, Any]]:
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for source in all_rss_sources():
+        groups.setdefault(str(source["group"]), []).append(source)
+    result = []
+    for name, sources in groups.items():
+        result.append(
+            {
+                "name": name,
+                "sources": sources,
+                "total": len(sources),
+                "enabled_count": sum(1 for source in sources if source["enabled"]),
+            }
+        )
+    return result
+
+
+def feeds() -> list[dict[str, str]]:
+    result = []
+    for item in all_rss_sources():
+        if item["enabled"]:
+            result.append({"name": str(item["name"]), "url": str(item["url"])})
     return result
 
 
@@ -162,7 +294,10 @@ def html_sources() -> list[dict[str, Any]]:
 
 
 def biorxiv_config() -> dict[str, Any]:
-    config = section("biorxiv_api")
+    config = dict(section("biorxiv_api"))
+    enabled_setting = storage.get_app_setting("biorxiv_enabled")
+    if enabled_setting in {"0", "1"}:
+        config["enabled"] = enabled_setting == "1"
     if not config.get("enabled"):
         return {}
     return config

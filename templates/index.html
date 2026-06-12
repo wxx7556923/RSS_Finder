@@ -4,38 +4,65 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ app_title }}</title>
-    <link rel="stylesheet" href="/static/style.css?v=20260610-note-saved-state">
+    <link rel="stylesheet" href="/static/style.css?v=20260612-workbench">
   </head>
   <body data-mode="{{ mode }}">
     <main class="shell">
       <header class="topbar">
-        <div>
-          <h1>{{ app_title }}</h1>
+        <div class="brand-block">
+          <div class="brand-row">
+            <div class="brand-mark">PR</div>
+            <div>
+              <h1>{{ app_title }}</h1>
+              <p class="feed-link">Paper Radar</p>
+            </div>
+          </div>
           <nav class="mode-switch" aria-label="模式">
-            <a class="{% if mode == 'ds' %}active{% endif %}" href="/?mode=ds">DS 模式</a>
-            <a class="{% if mode == 'original' %}active{% endif %}" href="/?mode=original">原文模式</a>
-            <a href="/sources">源健康</a>
+            <a class="{% if mode == 'original' %}active{% endif %}" href="/?mode=original">原文</a>
+            <a class="{% if mode == 'ds' %}active{% endif %}" href="/?mode=ds">DeepSeek</a>
+            <a href="/sources">源</a>
             <a href="/database">数据库</a>
             <a href="/tags">标签</a>
             <a href="/digest">周报</a>
+            <a href="/settings">设置</a>
           </nav>
         </div>
         <div class="actions">
-          <button data-action="sync">一键同步</button>
-          <button data-action="fetch">抓取新文章</button>
-          <button data-action="pubmed-backfill">补 PubMed 摘要</button>
-          <button data-action="apply-rules">应用规则</button>
-          {% if mode == "ds" %}
-          <button data-action="translate">批量翻译标题</button>
-          {% endif %}
-          <button data-action="build-feed">重新生成 RSS</button>
-          <a class="button-link" href="/api/backup/db">备份数据库</a>
-          <a class="button-link" href="/api/export/articles.json">导出 JSON</a>
+          <div class="action-group action-group-main">
+            <button class="primary-action" data-action="sync">一键同步</button>
+            <button data-action="fetch">抓取新文章</button>
+          </div>
+          <div class="action-group action-group-secondary">
+            <button data-action="pubmed-backfill">补 PubMed</button>
+            <button data-action="apply-rules">应用规则</button>
+            {% if mode == "ds" %}
+            <button data-action="translate">翻译标题</button>
+            {% endif %}
+            <button data-action="build-feed">生成 RSS</button>
+          </div>
+          <div class="action-group action-group-files">
+            <a class="button-link" href="/api/backup/db">备份</a>
+            <a class="button-link" href="/api/export/articles.json">导出</a>
+          </div>
         </div>
       </header>
 
+      <section class="workbench-summary" aria-label="今日工作台">
+        <div class="workbench-copy">
+          <span>今日工作台</span>
+          <strong>{{ articles_count }} 篇正在显示</strong>
+        </div>
+        <div class="workbench-items">
+          <div><span>{{ workbench.today_added }}</span><label>今日新增</label></div>
+          <div><span>{{ workbench.pending_relevance }}</span><label>待判断</label></div>
+          <div class="summary-strong"><span>{{ workbench.strong }}</span><label>强相关</label></div>
+          <div><span>{{ workbench.to_read }}</span><label>待读</label></div>
+          <div class="summary-hidden"><span>{{ workbench.hidden }}</span><label>已隐藏</label></div>
+        </div>
+      </section>
+
       <section class="stats" aria-label="统计">
-        <div><span>{{ stats.total }}</span><label>本地累计文章</label></div>
+        <div class="stat-total"><span>{{ stats.total }}</span><label>累计</label></div>
         <div><span>{{ stats.unread }}</span><label>未读</label></div>
         <div><span>{{ stats.opened }}</span><label>已打开</label></div>
         <div><span>{{ stats.read }}</span><label>已读</label></div>
@@ -44,6 +71,8 @@
         <div><span>{{ stats.deep_read }}</span><label>精读</label></div>
         <div><span>{{ stats.favorite }}</span><label>收藏</label></div>
         <div><span>{{ stats.zotero_saved }}</span><label>已入 Zotero</label></div>
+        <div class="stat-strong"><span>{{ stats.relevance_strong }}</span><label>强相关</label></div>
+        <div class="stat-weak"><span>{{ stats.relevance_weak }}</span><label>弱相关</label></div>
         <div><span>{{ stats.filtered }}</span><label>已过滤</label></div>
         {% if mode == "ds" %}
         <div><span>{{ stats.translated }}</span><label>已翻译标题</label></div>
@@ -53,76 +82,100 @@
 
       <div id="notice" class="notice" hidden></div>
 
+      <section class="relevance-panel" aria-label="研究方向筛选">
+        <div class="relevance-main">
+          <label>
+            <span>研究方向</span>
+            <textarea id="relevance-profile" rows="3" placeholder="例如：我研究油菜作物遗传育种，主要使用生物信息学方法；优先关注植物、作物、基因组学、多组学、GWAS、QTL、泛基因组、单细胞、抗逆；也关注人类/动物领域的方法学、工具、算法、数据库、LLM 知识抽取和 AI for biology；不关注纯材料、纯临床癌症机制等。">{{ relevance_profile }}</textarea>
+          </label>
+        </div>
+        <div class="relevance-actions">
+          <label>
+            <span>本次最多处理</span>
+            <input id="relevance-limit" type="number" min="1" max="1000" value="100">
+          </label>
+          <button data-action="classify-relevance" data-mode="title">仅标题判断</button>
+          <button data-action="classify-relevance" data-mode="title_abstract">标题+摘要判断</button>
+        </div>
+      </section>
+
       <form class="filters" method="get" action="/">
         <input type="hidden" name="mode" value="{{ mode }}">
-        <label>
-          <span>检索</span>
-          <input name="q" value="{{ query }}" placeholder="标题、摘要、作者、DOI、笔记、标签">
-        </label>
-        <label>
-          <span>智能检索</span>
-          <input name="smart_q" value="{{ smart_q }}" placeholder="例如：油菜单细胞和抗逆相关进展">
-        </label>
-        <label>
-          <span>来源</span>
-          <select name="source">
-            <option value="">全部来源</option>
-            {% for item in sources %}
-              <option value="{{ item.name }}" {% if source == item.name %}selected{% endif %}>{{ item.label }}</option>
-            {% endfor %}
-          </select>
-        </label>
-        <label>
-          <span>状态</span>
-          <select name="read_status">
-            <option value="">全部状态</option>
-            <option value="unread" {% if read_status == "unread" %}selected{% endif %}>未读</option>
-            <option value="opened" {% if read_status == "opened" %}selected{% endif %}>已打开</option>
-            <option value="to_read" {% if read_status == "to_read" %}selected{% endif %}>待读</option>
-            <option value="read" {% if read_status == "read" %}selected{% endif %}>已读</option>
-            <option value="filtered" {% if read_status == "filtered" %}selected{% endif %}>已过滤</option>
-          </select>
-        </label>
-        <label>
-          <span>可读性</span>
-          <select name="reading_level">
-            <option value="">全部等级</option>
-            {% for value, label in reading_levels.items() %}
-              <option value="{{ value }}" {% if reading_level == value %}selected{% endif %}>{{ label }}</option>
-            {% endfor %}
-          </select>
-        </label>
-        <label class="check-filter">
-          <input type="checkbox" name="favorite" value="true" {% if favorite %}checked{% endif %}>
-          <span>只看收藏</span>
-        </label>
-        <label>
-          <span>作者</span>
-          <input name="author" value="{{ author }}" placeholder="Wang">
-        </label>
-        <label>
-          <span>DOI</span>
-          <input name="doi" value="{{ doi }}" placeholder="10.">
-        </label>
-        <label>
-          <span>标签</span>
-          <input name="tag" value="{{ tag }}" placeholder="genomics" list="tag-suggestions">
-          <datalist id="tag-suggestions">
-            {% for item in tag_suggestions %}
-              <option value="{{ item.tag }}">{{ item.total }} 篇</option>
-            {% endfor %}
-          </datalist>
-        </label>
-        <label>
-          <span>起始日期</span>
-          <input type="date" name="date_from" value="{{ date_from }}">
-        </label>
-        <label>
-          <span>结束日期</span>
-          <input type="date" name="date_to" value="{{ date_to }}">
-        </label>
-        <button type="submit">筛选</button>
-        <a class="button-link" href="/?mode={{ mode }}">清空</a>
+        <div class="filter-primary">
+          <label class="filter-search">
+            <span>检索</span>
+            <input name="q" value="{{ query }}" placeholder="标题、摘要、作者、DOI、笔记、标签">
+          </label>
+          <label class="filter-search">
+            <span>智能检索</span>
+            <input name="smart_q" value="{{ smart_q }}" placeholder="例如：油菜单细胞和抗逆相关进展">
+          </label>
+          <label>
+            <span>来源</span>
+            <select name="source">
+              <option value="">全部来源</option>
+              {% for item in sources %}
+                <option value="{{ item.name }}" {% if source == item.name %}selected{% endif %}>{{ item.label }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>
+            <span>状态</span>
+            <select name="read_status">
+              <option value="">全部状态</option>
+              <option value="unread" {% if read_status == "unread" %}selected{% endif %}>未读</option>
+              <option value="opened" {% if read_status == "opened" %}selected{% endif %}>已打开</option>
+              <option value="to_read" {% if read_status == "to_read" %}selected{% endif %}>待读</option>
+              <option value="read" {% if read_status == "read" %}selected{% endif %}>已读</option>
+              <option value="filtered" {% if read_status == "filtered" %}selected{% endif %}>已过滤</option>
+            </select>
+          </label>
+          <label class="check-filter">
+            <input type="checkbox" name="favorite" value="true" {% if favorite %}checked{% endif %}>
+            <span>只看收藏</span>
+          </label>
+          <button type="submit">筛选</button>
+          <a class="button-link" href="/?mode={{ mode }}">清空</a>
+        </div>
+        <details class="advanced-filters" {% if reading_level or author or doi or tag or date_from or date_to %}open{% endif %}>
+          <summary>更多筛选</summary>
+          <div class="advanced-filter-grid">
+            <label>
+              <span>可读性</span>
+              <select name="reading_level">
+                <option value="">全部等级</option>
+                {% for value, label in reading_levels.items() %}
+                  <option value="{{ value }}" {% if reading_level == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </label>
+            <label>
+              <span>作者</span>
+              <input name="author" value="{{ author }}" placeholder="Wang">
+            </label>
+            <label>
+              <span>DOI</span>
+              <input name="doi" value="{{ doi }}" placeholder="10.">
+            </label>
+            <label>
+              <span>标签</span>
+              <input name="tag" value="{{ tag }}" placeholder="genomics" list="tag-suggestions">
+              <datalist id="tag-suggestions">
+                {% for item in tag_suggestions %}
+                  <option value="{{ item.tag }}">{{ item.total }} 篇</option>
+                {% endfor %}
+              </datalist>
+            </label>
+            <label>
+              <span>起始日期</span>
+              <input type="date" name="date_from" value="{{ date_from }}">
+            </label>
+            <label>
+              <span>结束日期</span>
+              <input type="date" name="date_to" value="{{ date_to }}">
+            </label>
+          </div>
+        </details>
       </form>
       <div class="batch-toolbar">
         <label class="check-filter">
@@ -186,9 +239,18 @@
                 {% if article.zotero_status == "saved" %}
                 <span class="zotero-badge">已入 Zotero</span>
                 {% endif %}
+                {% if article.relevance_label %}
+                <span class="relevance-badge relevance-{{ article.relevance_label }}">
+                  {% if article.relevance_label == "strong" %}强相关{% elif article.relevance_label == "weak" %}弱相关{% elif article.relevance_label == "uncertain" %}待确认{% else %}不相关{% endif %}
+                  {% if article.relevance_score %} {{ article.relevance_score }}{% endif %}
+                </span>
+                {% endif %}
                 {% if article.authors %}<span>作者：{{ article.authors }}</span>{% endif %}
                 {% if article.doi %}<span>DOI：{{ article.doi }}</span>{% endif %}
               </div>
+              {% if article.relevance_reason %}
+              <div class="relevance-reason">{{ article.relevance_reason }}</div>
+              {% endif %}
               {% if article.system_tags %}
               <div class="tag-row">
                 {% for tag in article.system_tags.split(",") %}
@@ -233,9 +295,18 @@
                 {% if article.zotero_status == "saved" %}
                 <span class="zotero-badge">已入 Zotero</span>
                 {% endif %}
+                {% if article.relevance_label %}
+                <span class="relevance-badge relevance-{{ article.relevance_label }}">
+                  {% if article.relevance_label == "strong" %}强相关{% elif article.relevance_label == "weak" %}弱相关{% elif article.relevance_label == "uncertain" %}待确认{% else %}不相关{% endif %}
+                  {% if article.relevance_score %} {{ article.relevance_score }}{% endif %}
+                </span>
+                {% endif %}
                 {% if article.authors %}<span>作者：{{ article.authors }}</span>{% endif %}
                 {% if article.doi %}<span>DOI：{{ article.doi }}</span>{% endif %}
               </div>
+              {% if article.relevance_reason %}
+              <div class="relevance-reason">{{ article.relevance_reason }}</div>
+              {% endif %}
               {% if article.system_tags %}
               <div class="tag-row">
                 {% for tag in article.system_tags.split(",") %}
@@ -299,7 +370,7 @@
             </div>
             <div class="card-actions">
               {% if article.link %}
-              <a class="button-link primary-link" href="/api/articles/{{ article.article_id }}/open" target="_blank" rel="noreferrer" data-open-original data-id="{{ article.article_id }}">打开原文</a>
+              <a class="button-link primary-link" href="/api/articles/{{ article.article_id }}/open" target="_blank" rel="noreferrer" data-open-original data-id="{{ article.article_id }}">打开</a>
               {% else %}
               <button disabled>打开原文</button>
               {% endif %}
@@ -307,11 +378,11 @@
                 {% if article.favorite %}取消收藏{% else %}收藏{% endif %}
               </button>
               <button data-action="set-status" data-status="to_read" data-id="{{ article.article_id }}">待读</button>
-              <button class="{% if article.read_status == 'read' %}status-done{% endif %}" data-action="set-status" data-status="read" data-id="{{ article.article_id }}">{% if article.read_status == 'read' %}已读{% else %}标为已读{% endif %}</button>
+              <button class="{% if article.read_status == 'read' %}status-done{% endif %}" data-action="set-status" data-status="read" data-id="{{ article.article_id }}">{% if article.read_status == 'read' %}已读{% else %}已读{% endif %}</button>
               <button data-action="save-zotero" data-id="{{ article.article_id }}" data-zotero-status="{{ article.zotero_status }}">
-                {% if article.zotero_status == "saved" %}已入 Zotero{% else %}存入 Zotero{% endif %}
+                {% if article.zotero_status == "saved" %}Zotero{% else %}Zotero{% endif %}
               </button>
-              <a class="button-link" href="/api/articles/{{ article.article_id }}/ris">导出 RIS</a>
+              <a class="button-link" href="/api/articles/{{ article.article_id }}/ris">RIS</a>
               <button class="danger-button" data-action="delete-article" data-id="{{ article.article_id }}">删除</button>
             </div>
           </article>
@@ -324,6 +395,6 @@
         {% endif %}
       </section>
     </main>
-    <script src="/static/app.js?v=20260610-pubmed-backfill-existing"></script>
+    <script src="/static/app.js?v=20260612-workbench"></script>
   </body>
 </html>

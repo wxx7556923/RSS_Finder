@@ -41,6 +41,28 @@ Windows-Install.bat
 
 不懂 API Key 也没关系，直接跳过即可。原文模式不需要 DeepSeek。
 
+
+## 更新已有安装
+
+如果你已经用过旧版，推荐用“新目录更新”，不要直接把新版文件覆盖到旧目录里。这样最不容易丢数据库和 API Key。
+
+1. 先双击旧版目录里的 `Windows-Stop.bat` 停止服务。
+2. 备份旧版目录里的这两个内容：
+
+```text
+.env
+data\rss_ai.db
+```
+
+3. 完整解压新版 zip 到一个新文件夹，例如 `PaperRadar-新版本`。
+4. 把旧版的 `.env` 和 `data\rss_ai.db` 复制到新版文件夹的相同位置。
+5. 在新版文件夹里双击 `Windows-Install.bat`。它会复用已有 Python；如果依赖已经满足，pip 通常会显示已安装或快速跳过。
+6. 安装完成后双击 `Windows-Start.bat`，打开 `/settings` 检查 API、RSS 关注源和研究方向。
+
+不要把旧版的 `config\app.yml` 直接覆盖到新版，除非你知道自己改过哪些源。新版的 RSS 源和设置项在 `config\app.yml` 里，直接覆盖可能会丢掉新加的期刊源。
+
+数据库会在启动时自动补新字段，例如相关性分类、语义缓存和 RSS 设置，不需要手动迁移。
+
 ## 启动
 
 双击：

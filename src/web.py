@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import logging
+import json
 import re
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import parse_qs, quote
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse, RedirectResponse
@@ -46,6 +47,45 @@ def _source_label(source_name: str) -> str:
 
 def _source_options() -> list[dict[str, str]]:
     return [{"name": name, "label": _source_label(name)} for name in storage.list_source_names()]
+
+
+def _configured(value: object) -> bool:
+    return bool(str(value or "").strip()) and str(value).strip() != "your_deepseek_api_key_here"
+
+
+def _settings_context(request: Request, saved: bool = False) -> dict[str, object]:
+    config = settings.reload_config()
+    deepseek = settings.deepseek_config()
+    pubmed = settings.section("pubmed")
+    zotero = settings.zotero_config()
+    biorxiv_raw = dict(settings.section("biorxiv_api"))
+    biorxiv_enabled_setting = storage.get_app_setting("biorxiv_enabled")
+    if biorxiv_enabled_setting in {"0", "1"}:
+        biorxiv_raw["enabled"] = biorxiv_enabled_setting == "1"
+    return {
+        "request": request,
+        "app_title": settings.app_title(),
+        "saved": saved,
+        "deepseek_configured": _configured(deepseek.get("api_key")),
+        "deepseek_base_url": deepseek.get("base_url") or "https://api.deepseek.com",
+        "deepseek_model": deepseek.get("model") or "deepseek-chat",
+        "pubmed_configured": _configured(pubmed.get("api_key")),
+        "pubmed_email": pubmed.get("email") or "",
+        "zotero_configured": _configured(zotero.get("api_key")),
+        "zotero_user_id": zotero.get("user_id") or "",
+        "zotero_group_id": zotero.get("group_id") or "",
+        "zotero_collection_key": zotero.get("collection_key") or "",
+        "biorxiv_enabled": bool(biorxiv_raw.get("enabled")),
+        "biorxiv_days_back": biorxiv_raw.get("days_back") or 2,
+        "biorxiv_max_pages": biorxiv_raw.get("max_pages_per_category") or 5,
+        "rss_source_groups": settings.rss_source_groups(),
+        "relevance_profile": storage.get_app_setting("relevance_profile"),
+        "relevance_auto_enabled": storage.get_app_setting("relevance_auto_enabled", "0") == "1",
+        "relevance_scope": storage.get_app_setting("relevance_scope", "unread_pending"),
+        "relevance_mode": storage.get_app_setting("relevance_mode", "title"),
+        "relevance_limit": storage.get_app_setting("relevance_limit", "100"),
+        "config": config,
+    }
 
 
 READING_LEVELS = {
@@ -118,6 +158,7 @@ async def index(
     if not read_status.strip():
         articles = [article for article in articles if article["read_status"] not in {"filtered", "read"}]
     stats = storage.get_stats()
+    workbench = storage.get_workbench_summary()
     return templates.TemplateResponse(
         "index.html",
         {
@@ -125,6 +166,7 @@ async def index(
             "articles": articles,
             "articles_count": len(articles),
             "stats": stats,
+            "workbench": workbench,
             "app_title": settings.app_title(),
             "mode": view_mode,
             "query": q,
@@ -146,6 +188,8 @@ async def index(
             "reading_levels": READING_LEVELS,
             "read_status_labels": READ_STATUS_LABELS,
             "feed_url": "/feed-original.xml" if view_mode == "original" else "/feed.xml",
+            "relevance_profile": storage.get_app_setting("relevance_profile"),
+            "relevance_scope": storage.get_app_setting("relevance_scope", "unread_pending"),
         },
     )
 
@@ -194,6 +238,20 @@ async def api_sync(limit: int | None = Query(default=None, ge=1, le=1000)):
             }
         feed_result = rss_writer.build_feed()
         original_feed_result = rss_writer.build_original_feed()
+        relevance_result: dict[str, object] = {"skipped": True}
+        if storage.get_app_setting("relevance_auto_enabled", "0") == "1":
+            profile = storage.get_app_setting("relevance_profile")
+            if profile and str(deepseek_config.get("api_key") or "").strip():
+                try:
+                    relevance_limit = max(1, min(int(storage.get_app_setting("relevance_limit", "100") or "100"), 1000))
+                except (TypeError, ValueError):
+                    relevance_limit = 100
+                relevance_result = await deepseek_client.classify_pending_relevance(
+                    profile,
+                    use_abstract=(storage.get_app_setting("relevance_mode", "title") == "title_abstract"),
+                    limit=relevance_limit,
+                    scope=storage.get_app_setting("relevance_scope", "unread_pending"),
+                )
         return JSONResponse(
             {
                 "fetch": fetch_result,
@@ -201,6 +259,7 @@ async def api_sync(limit: int | None = Query(default=None, ge=1, le=1000)):
                 "translate": translate_result,
                 "feed": feed_result,
                 "original_feed": original_feed_result,
+                "relevance": relevance_result,
             }
         )
     except Exception as exc:
@@ -223,6 +282,94 @@ async def api_translate_titles(
     except Exception as exc:
         logger.exception("Title translation API failed: %s", exc)
         raise HTTPException(status_code=500, detail="批量翻译标题失败，请查看 logs/app.log")
+
+
+@app.post("/api/relevance-classify")
+async def api_relevance_classify(request: Request):
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = {}
+    profile = str(payload.get("profile") or "").strip()
+    mode = str(payload.get("mode") or "title").strip()
+    try:
+        limit = int(payload.get("limit") or 100)
+    except (TypeError, ValueError):
+        limit = 100
+    scope = str(payload.get("scope") or storage.get_app_setting("relevance_scope", "unread_pending")).strip()
+    limit = max(1, min(limit, 1000))
+    if mode not in {"title", "title_abstract"}:
+        raise HTTPException(status_code=400, detail="无效相关性判断模式")
+    if scope not in {"new_only", "unread_pending"}:
+        raise HTTPException(status_code=400, detail="无效相关性判断范围")
+    if not profile:
+        raise HTTPException(status_code=400, detail="请先填写研究方向")
+    try:
+        result = await deepseek_client.classify_pending_relevance(
+            profile,
+            use_abstract=(mode == "title_abstract"),
+            limit=limit,
+            scope=scope,
+        )
+        return JSONResponse(result)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        logger.exception("Relevance classification API failed: %s", exc)
+        raise HTTPException(status_code=500, detail="相关性判断失败，请查看 logs/app.log")
+
+
+@app.get("/settings")
+async def settings_page(request: Request, saved: bool = Query(default=False)):
+    return templates.TemplateResponse("settings.html", _settings_context(request, saved=saved))
+
+
+@app.post("/settings")
+async def save_settings(request: Request):
+    body = (await request.body()).decode("utf-8")
+    raw_form = parse_qs(body, keep_blank_values=True)
+    form = {key: values[-1] if values else "" for key, values in raw_form.items()}
+    env_updates = {}
+    for form_key, env_key in [
+        ("deepseek_api_key", "DEEPSEEK_API_KEY"),
+        ("ncbi_api_key", "NCBI_API_KEY"),
+        ("ncbi_email", "NCBI_EMAIL"),
+        ("zotero_api_key", "ZOTERO_API_KEY"),
+        ("zotero_user_id", "ZOTERO_USER_ID"),
+        ("zotero_group_id", "ZOTERO_GROUP_ID"),
+        ("zotero_collection_key", "ZOTERO_COLLECTION_KEY"),
+    ]:
+        value = str(form.get(form_key) or "").strip()
+        if value:
+            env_updates[env_key] = value
+    if env_updates:
+        settings.update_env_values(env_updates)
+
+    storage.set_app_setting("biorxiv_enabled", "1" if form.get("biorxiv_enabled") else "0")
+    available_sources = {str(source["name"]) for source in settings.all_rss_sources()}
+    selected_sources = [
+        str(value).strip()
+        for value in raw_form.get("rss_sources", [])
+        if str(value).strip() in available_sources
+    ]
+    storage.set_app_setting("rss_enabled_sources", json.dumps(selected_sources, ensure_ascii=False))
+    storage.set_app_setting("relevance_profile", str(form.get("relevance_profile") or "").strip())
+    storage.set_app_setting("relevance_auto_enabled", "1" if form.get("relevance_auto_enabled") else "0")
+    relevance_scope = str(form.get("relevance_scope") or "unread_pending").strip()
+    if relevance_scope not in {"new_only", "unread_pending"}:
+        relevance_scope = "unread_pending"
+    relevance_mode = str(form.get("relevance_mode") or "title").strip()
+    if relevance_mode not in {"title", "title_abstract"}:
+        relevance_mode = "title"
+    try:
+        relevance_limit = max(1, min(int(form.get("relevance_limit") or 100), 1000))
+    except (TypeError, ValueError):
+        relevance_limit = 100
+    storage.set_app_setting("relevance_scope", relevance_scope)
+    storage.set_app_setting("relevance_mode", relevance_mode)
+    storage.set_app_setting("relevance_limit", str(relevance_limit))
+    settings.reload_config()
+    return RedirectResponse("/settings?saved=1", status_code=303)
 
 
 @app.post("/api/articles/{article_id}/summarize")
